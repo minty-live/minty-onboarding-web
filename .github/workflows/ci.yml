@@ -1,5 +1,5 @@
 # Types, lint, the unit tests, the route check and a production build. The workflow body is
-# shared: minty-oliveandvine/.github -> .github/workflows/next-web.yml
+# shared: minty-live/.github -> .github/workflows/next-web.yml
 #
 # Browser tests (npm run test:e2e) need four services and the whole stack; they are not in the
 # stack job yet, because walk/resume need a disposable entity Minty's seed does not create.
@@ -12,7 +12,7 @@ on:
 
 jobs:
   check:
-    uses: minty-oliveandvine/.github/.github/workflows/next-web.yml@v1
+    uses: minty-live/.github/.github/workflows/next-web.yml@v1
     with:
       extra-scripts: |
         check:routes
