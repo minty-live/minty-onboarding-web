@@ -119,9 +119,6 @@ export function StepCreateEntity({
   const shownProblems = showErrors && emailShown ? [...shownMissing, emailProblem] : shownMissing;
   const messageFor = (fieldId: string) => shownMissing.find((f) => f.fieldId === fieldId);
   const toast = useToast();
-  // Set when the backend rejects the name as already-taken, so we can flag the
-  // Entity Name field and clear the flag as soon as the user edits the name.
-  const [nameTaken, setNameTaken] = useState(false);
   // Country / currency options come from the backend registries
   // (country_info / currency_info): the dropdown shows the name but its
   // value — what gets stored and submitted — is the registry uuid, so the
@@ -245,17 +242,12 @@ export function StepCreateEntity({
       return;
     }
     setShowErrors(false);
-    setNameTaken(false);
     if (typeof submitEntity === "function") {
       setSaving(true);
       const result = await submitEntity();
       setSaving(false);
       if (!result?.ok) {
-        // A duplicate name is announced by the inline field message, which points
-        // at the field the user has to change. Raising the toast too would say the
-        // same thing twice, so only non-duplicate failures get one.
-        if ("duplicate" in result && result.duplicate) setNameTaken(true);
-        else toast.error(result.error);
+        toast.error(result.error);
         return;
       }
     }
@@ -274,11 +266,7 @@ export function StepCreateEntity({
       </div>
       <ErrorSummary items={shownProblems} attempt={attempt} />
       <div className="form-stack">
-        <div
-          className={
-            "field" + (nameTaken || nameTooLong || messageFor("entity-name") ? " field-error" : "")
-          }
-        >
+        <div className={"field" + (nameTooLong || messageFor("entity-name") ? " field-error" : "")}>
           <label htmlFor="entity-name">
             Entity Name
             <span className="req" aria-hidden>
@@ -294,33 +282,18 @@ export function StepCreateEntity({
             placeholder="Please enter your company name"
             value={s.name}
             aria-required
-            aria-invalid={nameTaken || nameTooLong || !!messageFor("entity-name")}
+            aria-invalid={nameTooLong || !!messageFor("entity-name")}
             aria-describedby={
-              nameTaken
-                ? "entity-name-taken"
-                : nameTooLong || messageFor("entity-name")
-                  ? "entity-name-error"
-                  : undefined
+              nameTooLong || messageFor("entity-name") ? "entity-name-error" : undefined
             }
-            onChange={(e) => {
-              // Editing the name clears the duplicate field flag so it doesn't
-              // linger while the user types a new name. The toast dismisses
-              // itself, so there's nothing to clear there.
-              if (nameTaken) setNameTaken(false);
-              upd("name", e.target.value);
-            }}
+            onChange={(e) => upd("name", e.target.value)}
           />
-          {nameTaken && (
-            <div className="field-required" role="alert" id="entity-name-taken">
-              Oh, someone got there first! Do you have another name in mind?
-            </div>
-          )}
-          {!nameTaken && nameTooLong && (
+          {nameTooLong && (
             <div className="field-required" id="entity-name-error">
               Keep the company name to 100 characters or fewer.
             </div>
           )}
-          {!nameTaken && !nameTooLong && messageFor("entity-name") && (
+          {!nameTooLong && messageFor("entity-name") && (
             <div className="field-required" id="entity-name-error">
               {messageFor("entity-name")?.message}
             </div>

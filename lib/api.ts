@@ -235,8 +235,8 @@ export type ApiErrorBody = {
  */
 export type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string };
 
-/** A create/update that can collide on a globally-unique name. */
-export type EntityResult = Result | { ok: false; error: string; duplicate: true };
+/** A create/update of the company (names need not be unique, owner 2026-11-16). */
+export type EntityResult = Result;
 
 /** Creating a contact inline can fail because Xero is not connected. */
 export type ContactResult =

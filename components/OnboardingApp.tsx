@@ -82,7 +82,7 @@ import type {
   XeroConflict,
 } from "../lib/types";
 import { inviteRows } from "../lib/invites";
-import { nameTakenMessage, phoneForApi } from "../lib/validation";
+import { phoneForApi } from "../lib/validation";
 import { useMounted } from "../lib/useMounted";
 
 // Baked-in defaults that used to live in TWEAK_DEFAULTS (tweaks-panel removed from prod build)
@@ -960,8 +960,8 @@ export default function OnboardingApp() {
       try {
         // Revisiting Step 1 overwrites the entity in place via
         // PUT /api/onboarding/entity/{entity_id} (same fields as create) — it
-        // never creates a new entity. Returns { entity_id, name } on success,
-        // 409 on a name collision with a *different* entity. Accepts the same
+        // never creates a new entity. Returns { entity_id, name } on success;
+        // names need not be unique (owner, 2026-11-16). Accepts the same
         // field aliases as /create (entity_name|name, country|country_code,
         // currency|currency_code); we send the canonical names.
         const res = await fetch(
@@ -978,13 +978,6 @@ export default function OnboardingApp() {
             data,
             "I couldn't save that company. Mind trying again?",
           );
-          if (res.status === 409) {
-            return {
-              ok: false,
-              duplicate: true,
-              error: nameTakenMessage(state.entity.name),
-            };
-          }
           return { ok: false, error: backendMsg };
         }
         savedEntityRef.current = { ...payload };
@@ -1003,22 +996,12 @@ export default function OnboardingApp() {
       });
       const data: Partial<CreateEntityResponse> & ApiErrorBody = await res.json().catch(() => ({}));
       if (!res.ok) {
-        // The backend returns 409 only for a name collision (unique per person
-        // since 2026-11-03: a name this user already has — see /api/onboarding/create).
-        // Key off the status, not the message: the body is a sentence with no
-        // machine code, and the wording could change. A 400 is a different
-        // validation failure (e.g. empty name), so pass it through.
+        // Names need not be unique (owner, 2026-11-16), so no refusal here is
+        // about the name being used; a 400 (e.g. empty name) passes through.
         const backendMsg = friendlyError(
           data,
           "I couldn't create that company. Mind trying again?",
         );
-        if (res.status === 409) {
-          return {
-            ok: false,
-            duplicate: true,
-            error: nameTakenMessage(state.entity.name),
-          };
-        }
         return { ok: false, error: backendMsg };
       }
       if (data.entity_id) {
