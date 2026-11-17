@@ -110,6 +110,10 @@ export type OnboardingState = {
     business_type: "fnb" | "retail" | "service" | "general" | null;
     uses_sales_cash: boolean | null;
     business_answered: boolean;
+    /** The sales accounts screen (2026-11-17): the ticks in effect, and whether they were chosen. */
+    sells_electronic?: boolean;
+    sells_delivery?: boolean;
+    sales_chosen?: boolean;
   };
 };
 

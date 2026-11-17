@@ -5,7 +5,7 @@
 // default to a date the API then refused as "in the future". A date the user picked, or one a
 // saved draft brought back, is never replaced.
 
-import { render, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { useEffect, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { StepSalesSetting } from "../OnboardingSteps";
@@ -82,5 +82,137 @@ describe("StepSalesSetting -- the opening date's default", () => {
     const hk = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Hong_Kong" }).format(new Date());
     render(<Harness start={initialState()} />);
     await waitFor(() => expect(latest.pettyCash.openingDate).toBe(hk));
+  });
+});
+
+// Auto Fill's lists follow the business type: Restaurant & Food gets Electronic and Delivery; a
+// retail shop, a service or a general business one Non-cash list, Bank Transfer first and no
+// delivery (owner, 2026-11-17).
+describe("StepSalesSetting -- Auto Fill's methods", () => {
+  function startAs(businessType: string | null) {
+    const start = initialState();
+    start.accounting = {
+      mode: "minty",
+      businessType,
+      usesSalesCash: true,
+    } as WizardState["accounting"];
+    return start;
+  }
+
+  it("fills Restaurant & Food's Electronic and Delivery lists", async () => {
+    serverToday("2001-02-03");
+    render(<Harness start={startAs("fnb")} />);
+    fireEvent.click(screen.getByRole("button", { name: /auto fill default settings/i }));
+    await waitFor(() =>
+      expect(latest.pettyCash.electronicMethods).toEqual([
+        "Visa",
+        "Alipay",
+        "WeChat Pay",
+        "Mastercard",
+        "UnionPay",
+        "Amex",
+        "Octopus",
+      ]),
+    );
+    expect(latest.pettyCash.deliveryMethods).toEqual(["Food Panda", "Keeta", "OpenRice"]);
+  });
+
+  it.each(["retail", "service", "general"])(
+    "fills a %s business's Non-cash list with Bank Transfer first and no delivery",
+    async (businessType) => {
+      serverToday("2001-02-03");
+      render(<Harness start={startAs(businessType)} />);
+      fireEvent.click(screen.getByRole("button", { name: /auto fill default settings/i }));
+      await waitFor(() =>
+        expect(latest.pettyCash.electronicMethods).toEqual([
+          "Bank Transfer",
+          "Visa",
+          "Mastercard",
+          "UnionPay",
+          "Amex",
+          "Alipay",
+          "WeChat Pay",
+          "Octopus",
+          "FPS",
+        ]),
+      );
+      expect(latest.pettyCash.deliveryMethods).toEqual([]);
+    },
+  );
+});
+
+// The sales accounts screen's ticks decide the lists (owner, 2026-11-17; Figma 464:73 row 2): a list
+// shows only while its sales account is ticked, Cash is a card with nothing to add, and with no list
+// at all there is nothing to Auto Fill.
+describe("StepSalesSetting -- the lists follow the sales accounts", () => {
+  function startWith(
+    businessType: string | null,
+    ticks: { cash?: boolean; electronic?: boolean | null; delivery?: boolean | null },
+  ) {
+    const start = initialState();
+    start.accounting = {
+      mode: "minty",
+      businessType,
+      usesSalesCash: ticks.cash ?? true,
+      sellsElectronic: ticks.electronic ?? null,
+      sellsDelivery: ticks.delivery ?? null,
+    } as WizardState["accounting"];
+    return start;
+  }
+  const list = (name: string) => screen.queryByRole("list", { name: `${name} methods` });
+
+  it("shows Electronic, Delivery and the Cash card for Restaurant & Food by default", () => {
+    serverToday("2001-02-03");
+    render(<Harness start={startWith("fnb", {})} />);
+    expect(list("Electronic")).toBeInTheDocument();
+    expect(list("Delivery")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Nothing to add: your daily report asks for one cash total/),
+    ).toBeInTheDocument();
+  });
+
+  it("hides Delivery when Sales - Delivery is not ticked", () => {
+    serverToday("2001-02-03");
+    render(<Harness start={startWith("fnb", { electronic: true, delivery: false })} />);
+    expect(list("Electronic")).toBeInTheDocument();
+    expect(list("Delivery")).toBeNull();
+  });
+
+  it("shows a retail shop's Delivery list beside its Non-cash list when Delivery is ticked", () => {
+    serverToday("2001-02-03");
+    render(<Harness start={startWith("retail", { electronic: true, delivery: true })} />);
+    expect(list("Non-cash")).toBeInTheDocument();
+    expect(list("Delivery")).toBeInTheDocument();
+  });
+
+  it("drops the Cash card for a company banking all its sales", () => {
+    serverToday("2001-02-03");
+    render(<Harness start={startWith("fnb", { cash: false })} />);
+    expect(
+      screen.queryByText(/Nothing to add: your daily report asks for one cash total/),
+    ).toBeNull();
+  });
+
+  it("with only Sales - Cash ticked, shows no list and no Auto Fill", () => {
+    serverToday("2001-02-03");
+    render(<Harness start={startWith("fnb", { electronic: false, delivery: false })} />);
+    expect(list("Electronic")).toBeNull();
+    expect(list("Delivery")).toBeNull();
+    expect(screen.queryByRole("button", { name: /auto fill default settings/i })).toBeNull();
+    expect(
+      screen.getByText(
+        "Only Sales - Cash is ticked, so there are no payment or delivery methods to add.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("Auto Fill fills only the lists shown", async () => {
+    serverToday("2001-02-03");
+    render(<Harness start={startWith("fnb", { electronic: false, delivery: true })} />);
+    fireEvent.click(screen.getByRole("button", { name: /auto fill default settings/i }));
+    await waitFor(() =>
+      expect(latest.pettyCash.deliveryMethods).toEqual(["Food Panda", "Keeta", "OpenRice"]),
+    );
+    expect(latest.pettyCash.electronicMethods).toEqual([]);
   });
 });

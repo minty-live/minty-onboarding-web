@@ -158,6 +158,11 @@ export type AccountingForm = {
   /** `null` with `usesSalesCash` set is "None of these". */
   businessType: BusinessType | null;
   usesSalesCash: boolean | null;
+  /** The sales accounts screen (owner, 2026-11-17): Sales - Electronic Payment and Sales - Delivery
+   * ticked or not; `null` until chosen, when the business type picks (`salesTicksOf`). Sales - Cash
+   * is `usesSalesCash`. Absent in a session saved before the screen. */
+  sellsElectronic?: boolean | null;
+  sellsDelivery?: boolean | null;
 };
 
 export type WizardState = {

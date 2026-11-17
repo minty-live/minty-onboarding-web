@@ -135,6 +135,15 @@ function renderStep(
   return { next, view, getState: () => state };
 }
 
+/** A retail shop that has answered 4.2 and the sales accounts screen: it opens on 4.4. */
+const RETAIL_CHOSEN: AccountingForm = {
+  mode: "minty",
+  businessType: "retail",
+  usesSalesCash: true,
+  sellsElectronic: true,
+  sellsDelivery: false,
+};
+
 const saveAndNext = () => fireEvent.click(screen.getByRole("button", { name: /Save & Next/ }));
 
 describe("4.1 How would you like Minty to work?", () => {
@@ -187,8 +196,8 @@ describe("4.2 What best describes your business?", () => {
     fireEvent.click(screen.getByRole("radio", { name: /None of these/ }));
     fireEvent.click(screen.getByRole("radio", { name: /Not sure/ }));
     saveAndNext();
-    // no sales screen (owner, 2026-11-11): straight on to the expense accounts
-    await screen.findByText("What do you usually spend money on?");
+    // the sales accounts screen comes next (owner, 2026-11-17)
+    await screen.findByText("Your sales accounts");
     expect(calls[0]).toMatchObject({
       url: "/api/onboarding/accounting/business",
       body: { entity_id: "e-1", business_type: null, uses_sales_cash: true },
@@ -205,9 +214,61 @@ describe("4.2 What best describes your business?", () => {
   });
 });
 
+// The sales accounts screen (owner, 2026-11-17; Figma 464:73 row 1): three ticks, picked by the
+// business type until chosen; Cash is the cash answer; none ticked is refused with its sentence.
+describe("the sales accounts screen", () => {
+  const box = (name: RegExp) => screen.getByRole("checkbox", { name });
+
+  it("opens after 4.2 with the business type's picks: a retail shop takes Cash and Electronic", () => {
+    renderStep({ mode: "minty", businessType: "retail", usesSalesCash: true });
+    expect(screen.getByText("Your sales accounts")).toBeInTheDocument();
+    expect(screen.getByText(/Accounting setup · 3 of 4/i)).toBeInTheDocument();
+    expect(box(/Sales - Cash/)).toHaveAttribute("aria-checked", "true");
+    expect(box(/Sales - Electronic Payment/)).toHaveAttribute("aria-checked", "true");
+    expect(box(/Sales - Delivery/)).toHaveAttribute("aria-checked", "false");
+    expect(screen.getByText("Shows on your daily report: Cash Sales")).toBeInTheDocument();
+    expect(screen.getByText("Not on your daily report")).toBeInTheDocument();
+  });
+
+  it("Restaurant & Food starts with all three; banking all sales leaves Cash unticked", () => {
+    renderStep({ mode: "minty", businessType: "fnb", usesSalesCash: false });
+    expect(box(/Sales - Cash/)).toHaveAttribute("aria-checked", "false");
+    expect(box(/Sales - Electronic Payment/)).toHaveAttribute("aria-checked", "true");
+    expect(box(/Sales - Delivery/)).toHaveAttribute("aria-checked", "true");
+  });
+
+  it("refuses none ticked, says so and moves focus to the list", () => {
+    renderStep({ mode: "minty", businessType: "retail", usesSalesCash: true });
+    fireEvent.click(box(/Sales - Cash/));
+    fireEvent.click(box(/Sales - Electronic Payment/));
+    saveAndNext();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "No sales account is ticked yet. Tick at least one to continue.",
+    );
+    expect(document.activeElement?.id).toBe("acs-sales-accounts");
+    expect(calls.filter((c) => c.method === "POST")).toEqual([]);
+  });
+
+  it("saves the ticks, remembers them and goes on to the expense accounts", async () => {
+    const { getState } = renderStep({ mode: "minty", businessType: "retail", usesSalesCash: true });
+    fireEvent.click(box(/Sales - Delivery/));
+    saveAndNext();
+    await screen.findByText("What do you usually spend money on?");
+    expect(calls.find((c) => c.method === "POST")).toMatchObject({
+      url: "/api/onboarding/accounting/sales-accounts",
+      body: { entity_id: "e-1", cash: true, electronic: true, delivery: true },
+    });
+    expect(getState().accounting).toMatchObject({
+      usesSalesCash: true,
+      sellsElectronic: true,
+      sellsDelivery: true,
+    });
+  });
+});
+
 describe("4.4 the expense list", () => {
   it("an empty list offers Auto Fill and adding your own", async () => {
-    renderStep({ mode: "minty", businessType: "retail", usesSalesCash: true });
+    renderStep({ ...RETAIL_CHOSEN });
     expect(await screen.findByText("What do you usually spend money on?")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Auto Fill/ })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Add another category/ }));
@@ -219,9 +280,9 @@ describe("4.4 the expense list", () => {
   });
 
   it("is the last screen: Save & Next leaves the step", async () => {
-    const { next } = renderStep({ mode: "minty", businessType: "retail", usesSalesCash: true });
+    const { next } = renderStep({ ...RETAIL_CHOSEN });
     await screen.findByText("What do you usually spend money on?");
-    expect(screen.getByText(/Accounting setup · 3 of 3/i)).toBeInTheDocument();
+    expect(screen.getByText(/Accounting setup · 4 of 4/i)).toBeInTheDocument();
     saveAndNext();
     await waitFor(() => expect(next).toHaveBeenCalledTimes(1));
     expect(screen.queryByText(/accounts ready/)).toBeNull();
@@ -237,7 +298,7 @@ describe("4.4 Auto Fill and Revert (owner, 2026-11-11)", () => {
 
   it("a row Revert had to keep (daily closing uses it) does not count as filled", async () => {
     expenseRows = [cashOverShort];
-    renderStep({ mode: "minty", businessType: "retail", usesSalesCash: true });
+    renderStep({ ...RETAIL_CHOSEN });
     expect(await screen.findByText("Cash Over / Short")).toBeInTheDocument();
     const button = screen.getByRole("button", { name: /Auto Fill/ });
     expect(button).toHaveAttribute("aria-pressed", "false");
@@ -250,7 +311,7 @@ describe("4.4 Auto Fill and Revert (owner, 2026-11-11)", () => {
       cashOverShort,
       { ...account("s1", "6000", "Rent", "expense"), is_system: false, auto_filled: true },
     ];
-    renderStep({ mode: "minty", businessType: "retail", usesSalesCash: true });
+    renderStep({ ...RETAIL_CHOSEN });
     expect(await screen.findByText("Rent")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Revert/ })).toHaveAttribute("aria-pressed", "true");
   });
@@ -291,7 +352,7 @@ describe("4.4 Auto Fill and Revert (owner, 2026-11-11)", () => {
         },
       ],
     };
-    renderStep({ mode: "minty", businessType: "retail", usesSalesCash: true });
+    renderStep({ ...RETAIL_CHOSEN });
     fireEvent.click(await screen.findByRole("button", { name: /Revert/ }));
 
     const button = await screen.findByRole("button", { name: /Auto Fill/ });
@@ -312,7 +373,7 @@ describe("4.4 an expense row", () => {
         description: "The shop's monthly rent.",
       },
     ];
-    renderStep({ mode: "minty", businessType: "retail", usesSalesCash: true });
+    renderStep({ ...RETAIL_CHOSEN });
     expect(await screen.findByText("Rent")).toBeInTheDocument();
     expect(screen.getByText(/The shop's monthly rent./)).toBeInTheDocument();
     expect(screen.getByRole("checkbox", { name: /Rent/ })).toBeChecked();

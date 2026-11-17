@@ -71,6 +71,7 @@ const DJANGO_PATHS = [
   "/api/onboarding/accounting",
   "/api/onboarding/accounting/mode",
   "/api/onboarding/accounting/business",
+  "/api/onboarding/accounting/sales-accounts",
   "/api/onboarding/accounting/autofill",
   "/api/onboarding/accounting/autofill/revert",
   "/api/onboarding/accounting/accounts",

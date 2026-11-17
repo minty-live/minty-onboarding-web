@@ -48,7 +48,7 @@ import type { BillsForm, EntityForm, PettyCashForm, StepProps } from "../lib/typ
 import type { CountryRow, CurrencyRow } from "../lib/refData";
 import type { PaymentMethod } from "../lib/billing";
 import type { ModuleId, Result, SetupGap } from "../lib/api";
-import { STEPS, accountingOf, isNonCash } from "../lib/wizardSteps";
+import { STEPS, accountingOf, isNonCash, salesTicksOf } from "../lib/wizardSteps";
 
 // entities.name's length, as the API's NAME_MAX (onboarding/api_entity.py).
 const NAME_MAX = 100;
@@ -1037,8 +1037,10 @@ export function StepSalesSetting({
 >) {
   // The lists follow the business type (owner, 2026-11-11): Restaurant & Food keeps Electronic and
   // Delivery; a retail shop, a service or a general business has one Non-cash list (sent as
-  // electronic). A company from before the question (no type) keeps both.
+  // electronic). A company from before the question (no type) keeps both. Owner, 2026-11-17 (Figma
+  // 464:73 row 2): only the lists whose sales account is ticked show, and Cash is a card.
   const nonCash = isNonCash(accountingOf(state).businessType);
+  const ticks = salesTicksOf(accountingOf(state));
   // Save everything on this step: sales methods AND the opening balance/date.
   // submitOpeningBalance no-ops when the balance is empty, so a blank balance
   // never blocks Save & Next / Save & Exit — we persist whatever's filled in.
@@ -1198,8 +1200,10 @@ export function StepSalesSetting({
   // rows instead of minting near-duplicates. Nothing is pre-seeded: both lists start empty
   // on a new company and only this button fills them.
   const DEFAULT_DELIVERY = ["Food Panda", "Keeta", "OpenRice"];
-  // A retail shop, a service or a general business: the cards and wallets it takes (owner, 2026-11-11).
+  // A retail shop, a service or a general business: the cards and wallets it takes (owner, 2026-11-11),
+  // bank transfers first (owner, 2026-11-17).
   const DEFAULT_NON_CASH = [
+    "Bank Transfer",
     "Visa",
     "Mastercard",
     "UnionPay",
@@ -1209,15 +1213,28 @@ export function StepSalesSetting({
     "Octopus",
     "FPS",
   ];
-  const defaults = nonCash
-    ? { electronic: DEFAULT_NON_CASH, delivery: [] as string[] }
-    : { electronic: DEFAULT_ELECTRONIC, delivery: DEFAULT_DELIVERY };
+  // Auto Fill fills only the lists shown (the ticked sales accounts).
+  const defaults = {
+    electronic: ticks.electronic ? (nonCash ? DEFAULT_NON_CASH : DEFAULT_ELECTRONIC) : [],
+    delivery: ticks.delivery ? DEFAULT_DELIVERY : [],
+  };
+  const anyList = ticks.electronic || ticks.delivery;
   const todayIso = toIsoDate(new Date());
   const sameList = (a: string[], b: string[]) =>
     a.length === b.length && a.every((x, i) => x === b[i]);
   const isAutofilled =
-    sameList(p.electronicMethods || [], defaults.electronic) &&
-    (nonCash || sameList(p.deliveryMethods || [], defaults.delivery));
+    anyList &&
+    (!ticks.electronic || sameList(p.electronicMethods || [], defaults.electronic)) &&
+    (!ticks.delivery || sameList(p.deliveryMethods || [], defaults.delivery));
+  const businessWords = (
+    {
+      fnb: "Restaurant & Food",
+      retail: "Retail shop",
+      service: "Service business",
+      general: "General business",
+    } as Record<string, string>
+  )[accountingOf(state).businessType || ""];
+  const both = ticks.electronic && ticks.delivery;
 
   const resetDefaults = () => {
     if (isAutofilled) {
@@ -1239,42 +1256,59 @@ export function StepSalesSetting({
       },
     });
   };
+  const subtitle = !anyList
+    ? "Only Sales - Cash is ticked, so there are no payment or delivery methods to add."
+    : nonCash && ticks.electronic
+      ? "Add the ways customers pay you other than cash. Retail, service and general businesses keep them in one Non-cash list."
+      : both
+        ? "Add the payment and delivery channels you accept. Only the sales accounts you ticked in Accounting Setup are listed here."
+        : ticks.electronic
+          ? "Add the ways customers pay you other than cash. Delivery isn't ticked in Accounting Setup, so it isn't listed."
+          : "Add the delivery apps you take orders through. Electronic Payment isn't ticked in Accounting Setup, so it isn't listed.";
+  const note = !anyList
+    ? "Tick Sales - Electronic Payment or Sales - Delivery in Accounting Setup to add their methods here."
+    : nonCash && ticks.electronic
+      ? "Auto Fill starts with Bank Transfer. Remove any you don’t take, or add your own."
+      : "These become the fields on your daily report’s Sales step.";
   return (
     <>
-      <div className="autofill-row">
-        <AutofillButton
-          active={isAutofilled}
-          onClick={resetDefaults}
-          label={isAutofilled ? "Clear auto-filled methods" : "Auto fill default settings"}
-        />
-        <span className="autofill-hint">
-          Not sure what to choose? I&apos;ll set some sensible defaults for you.
-        </span>
+      <div className="page-head pc-page-head pc-sales-head">
+        <p className="acs-kicker">Petty Cash Settings · Sales methods</p>
+        <h2>Type of sales method of your company</h2>
+        <p>{subtitle}</p>
       </div>
-      <div className="page-head pc-page-head" style={{ textAlign: "left", marginBottom: 18 }}>
-        <div className="pc-head-row">
-          <h2 style={{ fontSize: 30 }}>Type of sales method of your company</h2>
+      {anyList && (
+        <div className="autofill-row pc-autofill-row">
+          <AutofillButton
+            active={isAutofilled}
+            onClick={resetDefaults}
+            label={isAutofilled ? "Clear auto-filled methods" : "Auto fill default settings"}
+          />
+          <span className="autofill-hint">
+            {isAutofilled
+              ? `Filled for ${businessWords || "Restaurant & Food"}. Revert empties the ${both ? "lists" : "list"} again.`
+              : "Not sure what to add? I’ll fill in the usual methods for your business."}
+          </span>
         </div>
-        <p style={{ marginTop: 6 }}>
-          {nonCash
-            ? "Add the ways customers pay you other than cash. You can always go back to settings to edit options"
-            : "Add the payment and delivery channels you accept. You can always go back to settings to edit options"}
-        </p>
-      </div>
+      )}
 
       <div className="pc-stack">
-        <MethodList
-          title={nonCash ? "Non-cash" : "Electronic"}
-          placeholder="Enter payment method name"
-          methods={p.electronicMethods || []}
-          autoFilled={isAutofilled}
-          onAdd={(name) => upd("electronicMethods", [...(p.electronicMethods || []), name])}
-          onChange={(list) => upd("electronicMethods", list)}
-        />
+        {ticks.electronic && (
+          <MethodList
+            title={nonCash ? "Non-cash" : "Electronic"}
+            account="Sales - Electronic Payment"
+            placeholder="Enter payment method name"
+            methods={p.electronicMethods || []}
+            autoFilled={isAutofilled}
+            onAdd={(name) => upd("electronicMethods", [...(p.electronicMethods || []), name])}
+            onChange={(list) => upd("electronicMethods", list)}
+          />
+        )}
 
-        {nonCash ? null : (
+        {ticks.delivery && (
           <MethodList
             title="Delivery"
+            account="Sales - Delivery"
             glyph="delivery"
             placeholder="Enter delivery method name"
             methods={p.deliveryMethods || []}
@@ -1283,6 +1317,26 @@ export function StepSalesSetting({
             onChange={(list) => upd("deliveryMethods", list)}
           />
         )}
+
+        {ticks.cash && (
+          <div className="pc-cash-card">
+            <span className="pc-method-badge is-cash" aria-hidden>
+              <Icon.Payments />
+            </span>
+            <span className="pc-method-heading">
+              <span className="method-title">Cash</span>
+              <span className="pc-method-sub">
+                For your Sales - Cash account · Nothing to add: your daily report asks for one cash
+                total.
+              </span>
+            </span>
+          </div>
+        )}
+
+        <p className="acs-sa-note pc-sales-note">
+          <Icon.Info width={18} height={18} aria-hidden />
+          <span>{note}</span>
+        </p>
 
         <div className="pc-section-head">
           <div className="pc-section-title">Petty Cash Opening Balance</div>

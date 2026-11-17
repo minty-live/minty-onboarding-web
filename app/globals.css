@@ -5663,3 +5663,299 @@ textarea {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
 }
+
+/* The sales accounts screen (owner, 2026-11-17; Figma 464:73 row 1): three tick cards - Sales - Cash,
+   Electronic Payment, Delivery - each saying which part of the daily report it brings. */
+.acs-sa-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-radius: 16px;
+  outline: none;
+}
+.acs-sa-list.field-error {
+  box-shadow: 0 0 0 2px var(--danger);
+}
+.acs-sa {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 44px;
+  padding: 14px 16px;
+  text-align: left;
+  font: inherit;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  cursor: pointer;
+}
+.acs-sa.is-on {
+  background: #ffffff;
+  box-shadow: var(--shadow-sm);
+}
+.acs-sa:hover {
+  border-color: var(--line-strong);
+}
+.acs-sa:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.acs-sa-badge {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 22px;
+  background: #e3f5ec;
+  color: #1f9a63;
+}
+.acs-sa.is-electronic .acs-sa-badge {
+  background: #e4eefd;
+  color: #3b7dd8;
+}
+.acs-sa.is-delivery .acs-sa-badge {
+  background: #feeedc;
+  color: #e8833a;
+}
+.acs-sa:not(.is-on) .acs-sa-badge {
+  filter: grayscale(1);
+  opacity: 0.6;
+}
+.acs-sa-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  min-width: 0;
+}
+.acs-sa-name {
+  font-size: 16px;
+  font-weight: 600;
+}
+.acs-sa:not(.is-on) .acs-sa-name,
+.acs-sa:not(.is-on) .acs-sa-body {
+  color: var(--muted);
+}
+.acs-sa-body {
+  font-size: 13px;
+  color: #5d6260;
+  overflow-wrap: anywhere;
+}
+.acs-sa-pill {
+  margin-top: 4px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--accent-ink);
+  background: var(--accent-soft);
+  border-radius: 6px;
+}
+.acs-sa-pill.is-off {
+  color: var(--muted);
+  background: transparent;
+  padding-left: 0;
+}
+.acs-sa-check {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 14px;
+  border: 1.5px solid var(--line-strong);
+  color: #ffffff;
+}
+.acs-sa.is-on .acs-sa-check {
+  border-color: var(--accent-ink);
+  background: var(--accent-ink);
+}
+/* The plain info note under a list (row 1 and row 2's helper, 2026-11-17: no cat) */
+.acs-sa-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 18px 0 0;
+  padding: 14px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #2b5f5a;
+  background: #eaf4f2;
+  border-radius: 12px;
+}
+.acs-sa-note svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--accent-ink);
+}
+
+/* Step 5's sales methods (owner, 2026-11-17; Figma 464:73 row 2): a card per ticked sales account,
+   its methods as chips (drag or arrow keys to reorder), an add field with "+ Add", the Cash card. */
+.pc-sales-head {
+  text-align: center;
+}
+.pc-sales-head h2 {
+  font-size: 26px;
+}
+.pc-autofill-row {
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+.method-card.pc-method-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+.pc-method-head,
+.pc-cash-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.pc-method-badge {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 20px;
+  background: #e4eefd;
+  color: #3b7dd8;
+}
+.is-delivery > .pc-method-head .pc-method-badge {
+  background: #feeedc;
+  color: #e8833a;
+}
+.pc-method-badge.is-cash {
+  background: #e3f5ec;
+  color: #1f9a63;
+}
+.pc-method-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.pc-method-sub {
+  font-size: 12px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.pc-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pc-chips:empty {
+  display: none;
+}
+/* .method-list / .method-row are the old rows' classes, kept for the tests: the chip undoes them. */
+.pc-chips.method-list {
+  border-top: 0;
+}
+.pc-chip.method-row,
+.pc-chip.method-row:last-child {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  max-width: 100%;
+  min-height: 36px;
+  padding: 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.pc-chip .method-name {
+  flex: none;
+  font-size: 14px;
+  color: var(--ink);
+}
+.pc-chip.method-row.is-dragging {
+  opacity: 0.5;
+}
+.pc-chip.method-row.is-drag-over {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.pc-chip-grab {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  min-height: 36px;
+  padding: 0 4px 0 12px;
+  font-size: 14px;
+  cursor: grab;
+  overflow-wrap: anywhere;
+  border-radius: 10px;
+}
+.pc-chip-grab:focus-visible,
+.pc-chip-x:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.pc-chip-x {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.pc-chip-x:hover {
+  color: var(--ink);
+}
+@media (pointer: coarse) {
+  .pc-chip,
+  .pc-chip-grab {
+    min-height: 44px;
+  }
+  .pc-chip-x {
+    width: 44px;
+    height: 44px;
+  }
+}
+.pc-add-row {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+.pc-add-field {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+.pc-add-btn {
+  flex-shrink: 0;
+  min-height: 44px;
+  color: var(--accent-ink);
+  border-color: var(--accent);
+}
+.pc-cash-card {
+  padding: 16px;
+  background: var(--surface);
+  border: 1px dashed var(--line-strong);
+  border-radius: 16px;
+}
+.pc-sales-note {
+  margin-top: 0;
+}

@@ -35,6 +35,11 @@ export type AccountingSetup = {
   business_type: BusinessType | null;
   uses_sales_cash: boolean | null;
   business_answered: boolean;
+  /** The sales accounts screen (2026-11-17): the ticks in effect, and whether they were chosen. */
+  sells_cash?: boolean;
+  sells_electronic?: boolean;
+  sells_delivery?: boolean;
+  sales_chosen?: boolean;
   connected: boolean;
   accounts: Record<AccountKind, Account[]>;
   slots: Record<SlotRole, Slot>;
@@ -110,6 +115,12 @@ export const accountingApi = {
       business_type: businessType,
       uses_sales_cash: usesSalesCash,
     }),
+  /** The sales accounts screen: which of Cash, Electronic Payment and Delivery the company takes. */
+  setSalesAccounts: (
+    token: string,
+    entityId: string,
+    ticks: { cash: boolean; electronic: boolean; delivery: boolean },
+  ) => call<object>(token, "POST", "/sales-accounts", { entity_id: entityId, ...ticks }),
   suggestions: (token: string, entityId: string, kind: AccountKind) =>
     call<{ based_on: string; options: Suggestion[] }>(
       token,

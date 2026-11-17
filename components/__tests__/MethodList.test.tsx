@@ -44,10 +44,16 @@ describe("rendering", () => {
     expect(names()).toEqual(METHODS);
   });
 
-  it("renders an empty list without an add form open", () => {
+  it("renders an empty list with its add field ready", () => {
     const { rows } = setup({ methods: [] });
     expect(rows()).toHaveLength(0);
-    expect(screen.getByRole("button", { name: /Add New Method/ })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Enter method name")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Add/ })).toBeInTheDocument();
+  });
+
+  it("says which sales account the list is for", () => {
+    setup({ account: "Sales - Electronic Payment" });
+    expect(screen.getByText("For your Sales - Electronic Payment account")).toBeInTheDocument();
   });
 
   it("shows the sparkle only when the list was auto-filled", () => {
@@ -72,84 +78,68 @@ describe("rendering", () => {
   });
 });
 
+// Figma 464:73 row 2: the add field is always there, "+ Add" beside it (no form to open).
 describe("adding", () => {
-  it("opens a focused input", async () => {
-    setup();
-    await userEvent.click(screen.getByRole("button", { name: /Add New Method/ }));
-    const input = screen.getByPlaceholderText("Enter method name");
-    expect(input).toHaveFocus();
-  });
+  const field = () => screen.getByPlaceholderText("Enter method name");
+  const addButton = () => screen.getByRole("button", { name: /Add/ });
 
-  it("uses a caller-supplied placeholder", async () => {
+  it("uses a caller-supplied placeholder", () => {
     setup({ placeholder: "Enter delivery method" });
-    await userEvent.click(screen.getByRole("button", { name: /Add New Method/ }));
     expect(screen.getByPlaceholderText("Enter delivery method")).toBeInTheDocument();
   });
 
   it("keeps Add disabled until something is typed", async () => {
     setup();
-    await userEvent.click(screen.getByRole("button", { name: /Add New Method/ }));
-    const add = screen.getByRole("button", { name: "Add" });
-    expect(add).toBeDisabled();
-    await userEvent.type(screen.getByPlaceholderText("Enter method name"), "PayMe");
-    expect(add).toBeEnabled();
+    expect(addButton()).toBeDisabled();
+    await userEvent.type(field(), "PayMe");
+    expect(addButton()).toBeEnabled();
   });
 
   it("treats whitespace as empty", async () => {
     setup();
-    await userEvent.click(screen.getByRole("button", { name: /Add New Method/ }));
-    await userEvent.type(screen.getByPlaceholderText("Enter method name"), "   ");
-    expect(screen.getByRole("button", { name: "Add" })).toBeDisabled();
+    await userEvent.type(field(), "   ");
+    expect(addButton()).toBeDisabled();
   });
 
-  it("emits the trimmed name and closes the form", async () => {
+  it("emits the trimmed name and empties the field", async () => {
     const { onAdd } = setup();
-    await userEvent.click(screen.getByRole("button", { name: /Add New Method/ }));
-    await userEvent.type(screen.getByPlaceholderText("Enter method name"), "  PayMe  ");
-    await userEvent.click(screen.getByRole("button", { name: "Add" }));
+    await userEvent.type(field(), "  PayMe  ");
+    await userEvent.click(addButton());
     expect(onAdd).toHaveBeenCalledExactlyOnceWith("PayMe");
-    expect(screen.queryByPlaceholderText("Enter method name")).toBeNull();
+    expect(field()).toHaveValue("");
   });
 
   it("adds on Enter", async () => {
     const { onAdd } = setup();
-    await userEvent.click(screen.getByRole("button", { name: /Add New Method/ }));
-    await userEvent.type(screen.getByPlaceholderText("Enter method name"), "PayMe{Enter}");
+    await userEvent.type(field(), "PayMe{Enter}");
     expect(onAdd).toHaveBeenCalledExactlyOnceWith("PayMe");
   });
 
   it("does not add an empty name on Enter", async () => {
     const { onAdd } = setup();
-    await userEvent.click(screen.getByRole("button", { name: /Add New Method/ }));
-    await userEvent.type(screen.getByPlaceholderText("Enter method name"), "{Enter}");
+    await userEvent.type(field(), "{Enter}");
     expect(onAdd).not.toHaveBeenCalled();
-    // ...and the form stays open, rather than silently closing on a no-op.
-    expect(screen.getByPlaceholderText("Enter method name")).toBeInTheDocument();
   });
 
-  it("closes and forgets the draft on Escape", async () => {
+  it("forgets the draft on Escape", async () => {
     const { onAdd } = setup();
-    await userEvent.click(screen.getByRole("button", { name: /Add New Method/ }));
-    await userEvent.type(screen.getByPlaceholderText("Enter method name"), "PayMe{Escape}");
+    await userEvent.type(field(), "PayMe{Escape}");
     expect(onAdd).not.toHaveBeenCalled();
-    await userEvent.click(screen.getByRole("button", { name: /Add New Method/ }));
-    expect(screen.getByPlaceholderText("Enter method name")).toHaveValue("");
+    expect(field()).toHaveValue("");
   });
 
-  it("closes and forgets the draft on Cancel", async () => {
+  it("refuses a name the list already has, whatever its case, and says so", async () => {
     const { onAdd } = setup();
-    await userEvent.click(screen.getByRole("button", { name: /Add New Method/ }));
-    await userEvent.type(screen.getByPlaceholderText("Enter method name"), "PayMe");
-    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    await userEvent.type(field(), "octopus");
+    expect(addButton()).toBeDisabled();
+    expect(screen.getByText("Octopus is already in this list.")).toBeInTheDocument();
+    await userEvent.type(field(), "{Enter}");
     expect(onAdd).not.toHaveBeenCalled();
-    await userEvent.click(screen.getByRole("button", { name: /Add New Method/ }));
-    expect(screen.getByPlaceholderText("Enter method name")).toHaveValue("");
   });
 
   it("does not add to the list itself -- the parent owns the data", async () => {
     const { onChange, names } = setup();
-    await userEvent.click(screen.getByRole("button", { name: /Add New Method/ }));
-    await userEvent.type(screen.getByPlaceholderText("Enter method name"), "PayMe{Enter}");
+    await userEvent.type(field(), "PayMe{Enter}");
     expect(onChange).not.toHaveBeenCalled();
     expect(names()).toEqual(METHODS);
   });
@@ -287,5 +277,20 @@ describe("reordering by drag", () => {
     const rows = Array.from(container.querySelectorAll(".method-row"));
     drag(rows, 0, 2);
     expect(methods).toEqual(METHODS);
+  });
+
+  it("moves a chip with the arrow keys for keyboard users", () => {
+    const { rows, onChange } = setup();
+    const handle = within(rows()[0] as HTMLElement).getByRole("button", {
+      name: /Drag to reorder/,
+    });
+    fireEvent.keyDown(handle, { key: "ArrowRight" });
+    expect(onChange).toHaveBeenLastCalledWith(["Octopus", "Cash", "FPS"]);
+    const last = within(rows()[2] as HTMLElement).getByRole("button", { name: /Drag to reorder/ });
+    fireEvent.keyDown(last, { key: "ArrowLeft" });
+    expect(onChange).toHaveBeenLastCalledWith(["Cash", "FPS", "Octopus"]);
+    onChange.mockClear();
+    fireEvent.keyDown(handle, { key: "ArrowLeft" });
+    expect(onChange).not.toHaveBeenCalled();
   });
 });

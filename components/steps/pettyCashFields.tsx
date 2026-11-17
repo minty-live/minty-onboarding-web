@@ -6,7 +6,7 @@
 
 // --- Step 4: Petty Cash Settings ---
 
-import { useState, useRef, useEffect, type DragEvent, type ReactNode, type Ref } from "react";
+import { useState, useId, type DragEvent, type ReactNode, type Ref } from "react";
 import Icon from "../Icon";
 import MintySelect, { type SelectOption } from "../MintySelect";
 import { UUID_RE } from "../../lib/validation";
@@ -54,10 +54,15 @@ type MethodListProps = {
   /** Receives a fresh array; the list never mutates the one it was given. */
   onChange: (methods: string[]) => void;
   autoFilled?: boolean;
-  /** The row icon: 4.3's sales bag, or its scooter for delivery. */
+  /** The card's badge: a card for payments, the van for delivery. */
   glyph?: "sales" | "delivery";
+  /** The sales account the list belongs to ("Sales - Electronic Payment"), said under the title. */
+  account?: string;
 };
 
+/** Step 5's method list (Figma 464:73 row 2, owner 2026-11-17): a card per sales account, the
+ * methods as chips (x removes one; drag a chip, or press the arrow keys on it, to reorder), and an
+ * always-there add field with "+ Add" beside it. */
 export function MethodList({
   title,
   methods,
@@ -66,20 +71,23 @@ export function MethodList({
   onChange,
   autoFilled = false,
   glyph = "sales",
+  account,
 }: MethodListProps) {
-  const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [overIdx, setOverIdx] = useState<number | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (adding && inputRef.current) inputRef.current.focus();
-  }, [adding]);
+  const inputId = useId();
 
   const remove = (i: number) => {
     const copy = methods.slice();
     copy.splice(i, 1);
+    onChange(copy);
+  };
+  const move = (from: number, to: number) => {
+    if (from === to || to < 0 || to >= methods.length) return;
+    const copy = methods.slice();
+    const [moved] = copy.splice(from, 1);
+    copy.splice(to, 0, moved);
     onChange(copy);
   };
 
@@ -99,15 +107,7 @@ export function MethodList({
   };
   const onDrop = (i: number) => (e: DragEvent) => {
     e.preventDefault();
-    if (dragIdx === null || dragIdx === i) {
-      setDragIdx(null);
-      setOverIdx(null);
-      return;
-    }
-    const copy = methods.slice();
-    const [moved] = copy.splice(dragIdx, 1);
-    copy.splice(i, 0, moved);
-    onChange(copy);
+    if (dragIdx !== null) move(dragIdx, i);
     setDragIdx(null);
     setOverIdx(null);
   };
@@ -116,124 +116,116 @@ export function MethodList({
     setOverIdx(null);
   };
 
-  const cancel = () => {
-    setAdding(false);
-    setName("");
-  };
+  const typed = name.trim();
+  const already = typed ? methods.find((m) => m.toLowerCase() === typed.toLowerCase()) : undefined;
   const submit = () => {
-    const v = name.trim();
-    if (!v) return;
-    onAdd(v);
+    if (!typed || already) return;
+    onAdd(typed);
     setName("");
-    setAdding(false);
   };
 
   return (
-    <div className="method-card open">
-      <div className="method-head method-head-static">
-        <span className="method-title">
-          {title}
-          {autoFilled && (
-            <span className="method-sparkle" aria-hidden>
-              <Icon.Sparkle />
-            </span>
-          )}
+    <div className={"method-card pc-method-card is-" + glyph}>
+      <div className="pc-method-head">
+        <span className="pc-method-badge" aria-hidden>
+          {glyph === "delivery" ? <Icon.Delivery /> : <Icon.CreditCard />}
+        </span>
+        <span className="pc-method-heading">
+          <span className="method-title">
+            {title}
+            {autoFilled && (
+              <span className="method-sparkle" aria-hidden>
+                <Icon.Sparkle />
+              </span>
+            )}
+          </span>
+          {account && <span className="pc-method-sub">For your {account} account</span>}
         </span>
       </div>
-      <div className="method-body" style={{ display: "block" }}>
-        {/* 4.3's rows (owner, 2026-11-11: the sales-categories design moved here) */}
-        <ul className="acs-coa method-list" aria-label={`${title} methods`}>
-          {methods.map((m, i) => (
-            <li
-              className={
-                "acs-coa-row method-row" +
-                (dragIdx === i ? " is-dragging" : "") +
-                (overIdx === i && dragIdx !== i ? " is-drag-over" : "")
-              }
-              key={m + i}
-              onDragOver={onDragOver(i)}
-              onDrop={onDrop(i)}
-              onDragLeave={() => {
-                if (overIdx === i) setOverIdx(null);
+      <ul className="pc-chips method-list" aria-label={`${title} methods`}>
+        {methods.map((m, i) => (
+          <li
+            className={
+              "pc-chip method-row" +
+              (dragIdx === i ? " is-dragging" : "") +
+              (overIdx === i && dragIdx !== i ? " is-drag-over" : "")
+            }
+            key={m + i}
+            onDragOver={onDragOver(i)}
+            onDrop={onDrop(i)}
+            onDragLeave={() => {
+              if (overIdx === i) setOverIdx(null);
+            }}
+          >
+            <span
+              className="pc-chip-grab"
+              role="button"
+              tabIndex={0}
+              aria-label={"Drag to reorder " + m}
+              aria-roledescription="Movable chip. Arrow keys move it."
+              draggable
+              onDragStart={onDragStart(i)}
+              onDragEnd={onDragEnd}
+              onKeyDown={(e) => {
+                if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+                  e.preventDefault();
+                  move(i, i - 1);
+                } else if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+                  e.preventDefault();
+                  move(i, i + 1);
+                }
               }}
+              title="Drag to reorder"
             >
-              <span className={"acs-coa-icon is-" + glyph} aria-hidden>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={`/accounting/glyph-${glyph}.svg`} width={34} height={34} alt="" />
-              </span>
-              <span className="acs-coa-text">
-                <span className="acs-coa-name method-name">{m}</span>
-              </span>
-              <div className="method-actions">
-                <button
-                  type="button"
-                  className="method-trash"
-                  aria-label={"Delete " + m}
-                  onClick={() => remove(i)}
-                >
-                  <Icon.Trash />
-                </button>
-                <span
-                  className="method-drag"
-                  role="button"
-                  aria-label={"Drag to reorder " + m}
-                  draggable
-                  onDragStart={onDragStart(i)}
-                  onDragEnd={onDragEnd}
-                  title="Drag to reorder"
-                >
-                  <Icon.Grip />
-                </span>
-              </div>
-            </li>
-          ))}
-        </ul>
-        {adding ? (
-          <div className="method-add-form">
-            <div className="method-add-field">
-              <label>
-                Name
-                <span className="req" aria-hidden>
-                  *
-                </span>
-              </label>
-              <div className="field">
-                <input
-                  ref={inputRef}
-                  type="text"
-                  placeholder={placeholder}
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") submit();
-                    if (e.key === "Escape") cancel();
-                  }}
-                />
-              </div>
-            </div>
-            <div className="method-add-actions">
-              <button type="button" className="btn-cancel-outline" onClick={cancel}>
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn-mint-pill"
-                disabled={!name.trim()}
-                onClick={submit}
-              >
-                Add
-              </button>
-            </div>
-          </div>
-        ) : (
-          <button type="button" className="acs-add acs-coa-add" onClick={() => setAdding(true)}>
-            <span className="acs-coa-plus" aria-hidden>
-              +
+              <span className="method-name">{m}</span>
             </span>
-            Add New Method
-          </button>
-        )}
+            <button
+              type="button"
+              className="pc-chip-x"
+              aria-label={"Delete " + m}
+              onClick={() => remove(i)}
+            >
+              <Icon.Close width={14} height={14} />
+            </button>
+          </li>
+        ))}
+      </ul>
+      <div className="pc-add-row">
+        <label className="sr-only" htmlFor={inputId}>
+          New {title} method
+        </label>
+        <div className={"field pc-add-field" + (already ? " field-error" : "")}>
+          <input
+            id={inputId}
+            type="text"
+            placeholder={placeholder}
+            value={name}
+            aria-invalid={!!already}
+            aria-describedby={already ? inputId + "-msg" : undefined}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                submit();
+              }
+              if (e.key === "Escape") setName("");
+            }}
+          />
+        </div>
+        <button
+          type="button"
+          className="btn btn-ghost pc-add-btn"
+          disabled={!typed || !!already}
+          onClick={submit}
+        >
+          <Icon.Plus width={16} height={16} /> Add
+        </button>
       </div>
+      {already && (
+        <div className="field-required" id={inputId + "-msg"}>
+          {already} is already in this list.
+        </div>
+      )}
     </div>
   );
 }

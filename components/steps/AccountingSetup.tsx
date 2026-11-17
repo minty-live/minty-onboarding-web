@@ -25,13 +25,15 @@ import {
   type Answer,
   type Suggestion,
 } from "../../lib/accountingApi";
-import { accountingOf } from "../../lib/wizardSteps";
+import { accountingOf, salesTicksOf } from "../../lib/wizardSteps";
 import type { BusinessType, StepProps } from "../../lib/types";
 
-// Owner, 2026-11-11: no sales (4.3 / X2) or daily-closing (4.5 / X4) screen any more - the business
-// type's set brings the sales accounts and the daily-closing defaults (Minty), and Petty Cash Settings'
-// Account Code maps the daily-closing accounts from Xero (Xero).
-type Sub = "mode" | "xero" | "xexpense" | "business" | "expense";
+// Owner, 2026-11-11: no daily-closing (4.5 / X4) screen any more - the business type's set brings the
+// sales accounts and the daily-closing defaults (Minty), and Petty Cash Settings' Account Code maps the
+// daily-closing accounts from Xero (Xero). Owner, 2026-11-17: the sales accounts screen is back as
+// three ticks (Figma 464:73 row 1) - Sales - Cash, Electronic Payment, Delivery - that decide which
+// sales methods step 5 asks for; screen only, no account is made or removed.
+type Sub = "mode" | "xero" | "xexpense" | "business" | "sales" | "expense";
 
 type Props = Pick<
   StepProps,
@@ -131,7 +133,8 @@ function firstSub(state: Props["state"]): Sub {
   const a = accountingOf(state);
   if (state.xero.connected || a.mode === "xero") return a.mode ? "xero" : "mode";
   if (a.mode !== "minty") return "mode";
-  return a.usesSalesCash === null ? "business" : "expense";
+  if (a.usesSalesCash === null) return "business";
+  return salesTicksOf(a).chosen ? "expense" : "sales";
 }
 
 export function StepAccountingSetup(props: Props) {
@@ -145,7 +148,8 @@ export function StepAccountingSetup(props: Props) {
 
   const xeroPath = accounting.mode === "xero";
   const subs: Sub[] = useMemo(
-    () => (xeroPath ? ["mode", "xero", "xexpense"] : ["mode", "business", "expense"]) as Sub[],
+    () =>
+      (xeroPath ? ["mode", "xero", "xexpense"] : ["mode", "business", "sales", "expense"]) as Sub[],
     [xeroPath],
   );
 
@@ -277,6 +281,31 @@ export function StepAccountingSetup(props: Props) {
             return false;
           }
           remember({ businessType, usesSalesCash });
+          forward();
+          return true;
+        }}
+      />
+    );
+  }
+  if (sub === "sales") {
+    return (
+      <SalesAccountsScreen
+        kicker={kicker}
+        initial={salesTicksOf(accountingOf(state))}
+        nav={nav}
+        onSave={async (ticks) => {
+          const answer = entityId
+            ? await accountingApi.setSalesAccounts(token, entityId, ticks)
+            : ({ ok: true } as const);
+          if (!answer.ok) {
+            toast.error(answer.error);
+            return false;
+          }
+          remember({
+            usesSalesCash: ticks.cash,
+            sellsElectronic: ticks.electronic,
+            sellsDelivery: ticks.delivery,
+          });
           forward();
           return true;
         }}
@@ -444,6 +473,140 @@ function ModeScreen({
         await onSave(mode);
         setSaving(false);
       }, saving)}
+    </div>
+  );
+}
+
+// ---- the sales accounts (Figma 464:73 row 1) -------------------------------------------------------
+
+type SalesTicks = { cash: boolean; electronic: boolean; delivery: boolean };
+
+const SALES_ACCOUNTS: {
+  key: keyof SalesTicks;
+  name: string;
+  body: string;
+  part: string;
+  icon: "Payments" | "CreditCard" | "Delivery";
+}[] = [
+  {
+    key: "cash",
+    name: "Sales - Cash",
+    body: "Notes and coins taken at the counter.",
+    part: "Cash Sales",
+    icon: "Payments",
+  },
+  {
+    key: "electronic",
+    name: "Sales - Electronic Payment",
+    body: "Cards, wallets and transfers — Visa, Alipay, FPS…",
+    part: "Electronic Payments",
+    icon: "CreditCard",
+  },
+  {
+    key: "delivery",
+    name: "Sales - Delivery",
+    body: "Orders through delivery apps — Foodpanda, Keeta…",
+    part: "Delivery Sales",
+    icon: "Delivery",
+  },
+];
+const NO_SALES_ACCOUNT = "No sales account is ticked yet. Tick at least one to continue.";
+
+function SalesAccountsScreen({
+  kicker,
+  initial,
+  nav,
+  onSave,
+}: {
+  kicker: string;
+  initial: SalesTicks;
+  nav: (onNext: () => void, busy?: boolean) => React.ReactNode;
+  onSave: (ticks: SalesTicks) => Promise<boolean>;
+}) {
+  const [ticks, setTicks] = useState<SalesTicks>({
+    cash: initial.cash,
+    electronic: initial.electronic,
+    delivery: initial.delivery,
+  });
+  const [refused, setRefused] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const none = !ticks.cash && !ticks.electronic && !ticks.delivery;
+  const shown = refused && none;
+
+  const save = async () => {
+    if (none) {
+      setRefused(true);
+      document.getElementById("acs-sales-accounts")?.focus();
+      return;
+    }
+    setSaving(true);
+    const ok = await onSave(ticks);
+    if (!ok) setSaving(false);
+  };
+
+  return (
+    <div className="acs acs-sales-accounts">
+      <div className="page-head acs-head acs-mode-head">
+        <p className="acs-kicker">{kicker}</p>
+        <h2 id="acs-sales-title">Your sales accounts</h2>
+        <p>
+          Minty records your daily sales in three accounts. Tick the ones your business takes — your
+          daily report only asks for those.
+        </p>
+      </div>
+      <div
+        id="acs-sales-accounts"
+        tabIndex={-1}
+        className={"acs-sa-list" + (shown ? " field-error" : "")}
+        role="group"
+        aria-labelledby="acs-sales-title"
+        aria-describedby={shown ? "acs-sales-error" : undefined}
+      >
+        {SALES_ACCOUNTS.map((a) => {
+          const on = ticks[a.key];
+          const Glyph = Icon[a.icon];
+          return (
+            <button
+              key={a.key}
+              type="button"
+              role="checkbox"
+              aria-checked={on}
+              className={`acs-sa is-${a.key}` + (on ? " is-on" : "")}
+              onClick={() => {
+                setTicks((t) => ({ ...t, [a.key]: !t[a.key] }));
+                setRefused(false);
+              }}
+            >
+              <span className="acs-sa-badge" aria-hidden>
+                <Glyph />
+              </span>
+              <span className="acs-sa-text">
+                <span className="acs-sa-name">{a.name}</span>
+                <span className="acs-sa-body">{a.body}</span>
+                <span className={"acs-sa-pill" + (on ? "" : " is-off")}>
+                  {on ? `Shows on your daily report: ${a.part}` : "Not on your daily report"}
+                </span>
+              </span>
+              <span className="acs-sa-check" aria-hidden>
+                {on && <Icon.CheckSm width={16} height={16} />}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      {shown && (
+        <p className="field-required" id="acs-sales-error" role="alert">
+          {NO_SALES_ACCOUNT}
+        </p>
+      )}
+      <p className="acs-sa-note">
+        <Icon.Info width={18} height={18} aria-hidden />
+        <span>
+          Each one you tick adds its part to your daily report. You can change this later in
+          Settings.
+        </span>
+      </p>
+      {nav(() => void save(), saving)}
     </div>
   );
 }

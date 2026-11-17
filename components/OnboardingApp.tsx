@@ -47,9 +47,9 @@ import {
   getDisplaySteps,
   initialState,
   isStepComplete,
-  isNonCash,
   mintyOnItsOwn,
   pettyIds,
+  salesTicksOf,
 } from "../lib/wizardSteps";
 import Stepper from "./Stepper";
 import { useToast } from "./Toast";
@@ -393,6 +393,13 @@ export default function OnboardingApp() {
               mode: payload.accounting.mode,
               businessType: payload.accounting.business_type,
               usesSalesCash: payload.accounting.uses_sales_cash,
+              // The API answers the ticks in effect; unchosen they stay null (the type picks).
+              sellsElectronic: payload.accounting.sales_chosen
+                ? (payload.accounting.sells_electronic ?? null)
+                : null,
+              sellsDelivery: payload.accounting.sales_chosen
+                ? (payload.accounting.sells_delivery ?? null)
+                : null,
             }
           : accountingOf(prev),
         // Converted: the API says first_name/last_name, the cards read first/last.
@@ -1042,17 +1049,17 @@ export default function OnboardingApp() {
 
   const submitSalesMethods = async (): Promise<Result> => {
     if (!token || !state.entity.id) return { ok: true };
+    const ticks = salesTicksOf(accountingOf(state));
     try {
       const res = await fetch(urlFor(`/api/onboarding/sales-methods`), {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           entity_id: state.entity.id,
-          electronic: state.pettyCash.electronicMethods || [],
-          // One Non-cash list (retail, service, general; owner 2026-11-11): no delivery methods.
-          delivery: isNonCash(accountingOf(state).businessType)
-            ? []
-            : state.pettyCash.deliveryMethods || [],
+          // Only the lists whose sales account is ticked (owner, 2026-11-17); a retail shop, a
+          // service or a general business keeps its one Non-cash list as electronic.
+          electronic: ticks.electronic ? state.pettyCash.electronicMethods || [] : [],
+          delivery: ticks.delivery ? state.pettyCash.deliveryMethods || [] : [],
         }),
       });
       const data = await res.json().catch(() => ({}));

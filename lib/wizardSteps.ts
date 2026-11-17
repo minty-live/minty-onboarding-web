@@ -109,6 +109,25 @@ export function isNonCash(businessType: string | null | undefined): boolean {
   return businessType === "retail" || businessType === "service" || businessType === "general";
 }
 
+/** The sales accounts screen's three ticks (owner, 2026-11-17; Figma 464:73 row 1). Cash is the cash
+ * answer. Unchosen, the business type picks: Restaurant & Food and no type take Electronic and
+ * Delivery; a retail shop, a service or a general business Electronic (its Non-cash list) only. */
+export function salesTicksOf(a: AccountingForm): {
+  cash: boolean;
+  electronic: boolean;
+  delivery: boolean;
+  chosen: boolean;
+} {
+  const electronic = a.sellsElectronic ?? null;
+  const delivery = a.sellsDelivery ?? null;
+  return {
+    cash: a.usesSalesCash !== false,
+    electronic: electronic ?? true,
+    delivery: delivery ?? !isNonCash(a.businessType),
+    chosen: electronic !== null && delivery !== null,
+  };
+}
+
 export function pettyIds(mode: SetupMode | null): number[] {
   if (mode === "minty") return [5];
   return [5, 6, 7];

@@ -66,6 +66,7 @@ const TO_DJANGO = [
   "/api/onboarding/accounting?entity_id=abc",
   "/api/onboarding/accounting/mode",
   "/api/onboarding/accounting/business",
+  "/api/onboarding/accounting/sales-accounts",
   "/api/onboarding/accounting/autofill?entity_id=abc&kind=sales",
   "/api/onboarding/accounting/autofill/revert",
   "/api/onboarding/accounting/accounts",
