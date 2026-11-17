@@ -1258,13 +1258,11 @@ export function StepSalesSetting({
   };
   const subtitle = !anyList
     ? "Only Sales - Cash is ticked, so there are no payment or delivery methods to add."
-    : nonCash && ticks.electronic
-      ? "Add the ways customers pay you other than cash. Retail, service and general businesses keep them in one Non-cash list."
-      : both
-        ? "Add the payment and delivery channels you accept. Only the sales accounts you ticked in Accounting Setup are listed here."
-        : ticks.electronic
-          ? "Add the ways customers pay you other than cash. Delivery isn't ticked in Accounting Setup, so it isn't listed."
-          : "Add the delivery apps you take orders through. Electronic Payment isn't ticked in Accounting Setup, so it isn't listed.";
+    : both
+      ? "Add the payment and delivery channels you accept. Only the sales accounts you ticked in Accounting Setup are listed here."
+      : ticks.electronic
+        ? "Add the ways customers pay you other than cash. Delivery isn't ticked in Accounting Setup, so it isn't listed."
+        : "Add the delivery apps you take orders through. Electronic Payment isn't ticked in Accounting Setup, so it isn't listed.";
   const note = !anyList
     ? "Tick Sales - Electronic Payment or Sales - Delivery in Accounting Setup to add their methods here."
     : nonCash && ticks.electronic
@@ -1295,7 +1293,8 @@ export function StepSalesSetting({
       <div className="pc-stack">
         {ticks.electronic && (
           <MethodList
-            title={nonCash ? "Non-cash" : "Electronic"}
+            // named after its sales account (owner, 2026-11-17): Electronic for every business
+            title="Electronic"
             account="Sales - Electronic Payment"
             placeholder="Enter payment method name"
             methods={p.electronicMethods || []}

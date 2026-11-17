@@ -178,10 +178,10 @@ describe("StepSalesSetting -- the lists follow the sales accounts", () => {
     expect(list("Delivery")).toBeNull();
   });
 
-  it("shows a retail shop's Delivery list beside its Non-cash list when Delivery is ticked", () => {
+  it("shows a retail shop's Delivery list beside its Electronic list when Delivery is ticked", () => {
     serverToday("2001-02-03");
     render(<Harness start={startWith("retail", { electronic: true, delivery: true })} />);
-    expect(list("Non-cash")).toBeInTheDocument();
+    expect(list("Electronic")).toBeInTheDocument();
     expect(list("Delivery")).toBeInTheDocument();
   });
 

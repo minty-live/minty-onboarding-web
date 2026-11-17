@@ -182,7 +182,7 @@ refused as you type). An unticked account's list is hidden and posted empty; Cas
 nothing to add (hidden when Cash is unticked); a plain info note ends the lists. With only Cash
 ticked there is no list and no Auto Fill. Restaurant & Food and a company with no business type:
 **Electronic** and **Delivery** (Auto Fill: the old defaults). A retail shop, a service or a general business
-(`isNonCash` in `lib/wizardSteps.ts`; the API's `groups` says the same): one **Non-cash** list
+(`isNonCash` in `lib/wizardSteps.ts`; the API's `groups` says the same): one **Non-cash** list (titled **Electronic**, after its sales account, since 2026-11-17 - owner: Cash, Electronic and Delivery)
 (Auto Fill: Bank Transfer first - owner, 2026-11-17 - then Visa, Mastercard, UnionPay, Amex,
 Alipay, WeChat Pay, Octopus, FPS), posted as
 `electronic` with `delivery: []`. Petty Cash's daily closing, reports and Settings group them the
