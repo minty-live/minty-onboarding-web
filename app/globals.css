@@ -5034,6 +5034,14 @@ textarea {
 .acs-exp-icon.is-marketing {
   background: #fce7ef;
 }
+/* A sheet account's own icon (Figma 4.4, 2026-11-18): the picture carries its circle */
+.acs-exp-icon.is-art {
+  background: transparent;
+}
+.acs-exp-icon.is-art img {
+  width: 60px;
+  height: 60px;
+}
 .acs-exp-box {
   width: 24px;
   height: 24px;

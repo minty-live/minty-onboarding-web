@@ -940,6 +940,42 @@ const expenseGlyph = (name: string, type: string) =>
   EXPENSE_GLYPHS.find(([, re]) => re.test(name))?.[0] ??
   (type === "direct_costs" ? "products" : "other");
 
+// The accounting team's sheet accounts each have their own icon in the design (Figma 4.4, owner
+// 2026-11-18): by code, for a sheet row (an Auto Fill suggestion or an account it added). An account
+// the company made keeps the icon its name matches (expenseGlyph).
+const SHEET_ICONS: Record<string, string> = {
+  "5000": "inventory",
+  "5001": "transport",
+  "5002": "packaging",
+  "6000": "cleaning",
+  "6001": "utilities",
+  "6002": "telephone",
+  "6003": "rent",
+  "6005": "wages",
+  "6006": "professional",
+  "6007": "repairs",
+  "6009": "benefits",
+  "6010": "other",
+  "6011": "marketing",
+  "6012": "licenses",
+  "6013": "delivery-platform",
+  "6016": "insurance",
+  "6017": "stationery",
+  "6018": "system",
+};
+/** The card's icon: the sheet's own for a sheet row, else the name's glyph. */
+function expenseIcon(
+  code: string,
+  name: string,
+  type: string,
+  fromSheet: boolean,
+): { src: string; className: string; size: number } {
+  const own = fromSheet ? SHEET_ICONS[code] : undefined;
+  if (own) return { src: `/accounting/expense/${own}.png`, className: "is-art", size: 60 };
+  const glyph = expenseGlyph(name, type);
+  return { src: `/accounting/exp-${glyph}.svg`, className: `is-${glyph}`, size: 40 };
+}
+
 /** A row's menu: Edit and Remove. Closes on Escape, on a pick, or on a click elsewhere. */
 function RowMenu({
   name,
@@ -1267,27 +1303,20 @@ function AccountsScreen({
                 <li key={it.key} className={"acs-exp" + (it.account ? " is-on" : "")}>
                   <label className="acs-exp-main">
                     <span className="acs-exp-top">
-                      <span
-                        className={
-                          "acs-exp-icon is-" +
-                          expenseGlyph(
-                            it.account?.name ?? it.suggestion!.name,
-                            it.account?.type ?? it.suggestion!.type,
-                          )
-                        }
-                        aria-hidden
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={`/accounting/exp-${expenseGlyph(
-                            it.account?.name ?? it.suggestion!.name,
-                            it.account?.type ?? it.suggestion!.type,
-                          )}.svg`}
-                          width={40}
-                          height={40}
-                          alt=""
-                        />
-                      </span>
+                      {(() => {
+                        const icon = expenseIcon(
+                          it.account?.code ?? it.suggestion!.code,
+                          it.account?.name ?? it.suggestion!.name,
+                          it.account?.type ?? it.suggestion!.type,
+                          it.account ? it.account.source === "template" : true,
+                        );
+                        return (
+                          <span className={"acs-exp-icon " + icon.className} aria-hidden>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={icon.src} width={icon.size} height={icon.size} alt="" />
+                          </span>
+                        );
+                      })()}
                       <input
                         type="checkbox"
                         className="acs-coa-input"

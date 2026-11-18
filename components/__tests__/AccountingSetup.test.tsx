@@ -325,6 +325,31 @@ describe("4.4 Auto Fill and Revert (owner, 2026-11-11)", () => {
     expect(calls.some((c) => c.url.includes("/accounting/autofill"))).toBe(false);
   });
 
+  // Each sheet account has its own icon from the design (Figma 4.4, owner 2026-11-18), by its code;
+  // an account the company made keeps the icon its name matches.
+  it("draws each sheet account's own icon by its code, a company's own by its name", async () => {
+    const own = (id: string, code: string, name: string) => ({
+      ...account(id, code, name, "expense"),
+      is_system: false,
+      source: "user" as const,
+    });
+    expenseRows = [
+      { ...account("u1", "6001", "Utilities", "expense"), is_system: false },
+      { ...account("u2", "6018", "System and Subscription Expense", "expense"), is_system: false },
+      own("u3", "699", "Catering Rent"),
+    ];
+    const { view } = renderStep({ ...RETAIL_CHOSEN });
+    await screen.findByText("Utilities");
+    const icons = Array.from(view.container.querySelectorAll(".acs-exp .acs-exp-icon img")).map(
+      (img) => img.getAttribute("src"),
+    );
+    expect(icons).toEqual([
+      "/accounting/expense/utilities.png",
+      "/accounting/expense/system.png",
+      "/accounting/exp-rent.svg",
+    ]);
+  });
+
   it("an Auto Fill row nothing uses yet is filled: the button reads Revert", async () => {
     expenseRows = [
       cashOverShort,

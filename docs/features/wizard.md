@@ -141,7 +141,7 @@ so Save & Next only moves on; the kicker counts them (_Accounting setup · 3 of 
 - **Not yet:** the template rows (the accounting team's 8 sheets), so Auto Fill says there are
   no suggestions.
 - **4.4** is drawn as Figma 348:1267: a card per expense account in its group (`.acs-exp`; ticked =
-  teal edge and filled box, a suggestion grey), the icon chosen by name from the design's ten
+  teal edge and filled box, a suggestion grey), the sheet's 18 expense accounts (5000-6018) each with its own icon from the design by code (`SHEET_ICONS`, `public/accounting/expense/*.png`, owner 2026-11-18), any other account's icon chosen by name from the design's ten
   (`public/accounting/exp-*.svg`; no match: cost of sales "products", else "other"), the menu
   (Edit, Remove) in the card's corner - the frame draws none, but accounts must stay editable -
   and the dashed "Add another category" card; two cards a row on phones, 214px cards from 768px.
