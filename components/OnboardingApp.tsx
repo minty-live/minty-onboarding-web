@@ -1322,10 +1322,14 @@ export default function OnboardingApp() {
   };
 
   const lastStepRef = useRef(current);
+  // The page the side menu asked for, which wins over the default below.
+  const chosenSubRef = useRef<PettySub | null>(null);
   useEffect(() => {
     const from = lastStepRef.current;
     lastStepRef.current = current;
-    if (current === 5 && from !== 5) setPettySub(from > 5 ? "opening" : "sales");
+    const chosen = chosenSubRef.current;
+    chosenSubRef.current = null;
+    if (current === 5 && from !== 5) setPettySub(chosen ?? (from > 5 ? "opening" : "sales"));
   }, [current]);
 
   // Petty Cash's Account Code for Minty on its own (2026-11-18): step 4's expense accounts, ticked as
@@ -1812,19 +1816,29 @@ export default function OnboardingApp() {
                 (m) => m.id === current && (m.sub === undefined || m.sub === pettySub),
               );
               const active = index === here;
-              const done = here >= 0 ? index < here : current > item.id;
+              // ticked: passed, or finished on an earlier visit (before the furthest step reached)
+              const done =
+                !active && (here >= 0 ? index < here || item.id < maxReached : current > item.id);
               // A sub-step is reachable once the user has been there. Forward
               // jumps to an incomplete step are still blocked inside goto(), so
               // clicking a not-yet-eligible item is a safe no-op; we disable it
               // here too so the cursor/affordance matches.
-              const reachable = item.id < current || (item.id <= maxReached && done) || active;
+              // Forward to any step already reached (owner, 2026-11-18); Opening Balance from Sales
+              // once the wizard has been past step 5 (Sales' own Save & Next saves the methods).
+              const reachable =
+                item.id < current ||
+                (item.id > current && item.id <= maxReached) ||
+                (item.id === current && (item.sub !== "opening" || maxReached > item.id));
               return (
                 <button
                   key={item.id + (item.sub || "")}
                   type="button"
                   className={"pc-side-item" + (active ? " active" : "") + (done ? " done" : "")}
                   onClick={() => {
-                    if (item.sub) setPettySub(item.sub);
+                    if (item.sub) {
+                      setPettySub(item.sub);
+                      if (item.id !== current) chosenSubRef.current = item.sub;
+                    }
                     if (item.id !== current) goto(item.id);
                   }}
                   disabled={!reachable || active}

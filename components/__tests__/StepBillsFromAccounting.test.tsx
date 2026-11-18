@@ -42,9 +42,8 @@ describe("Payment Request Settings from Accounting Setup", () => {
       { code: "310", name: "Stock purchases" },
       { code: "420", name: "Rent" },
     ]);
-    expect(
-      screen.getByText("Choose which of your expense accounts appear in Payment Request."),
-    ).toBeInTheDocument();
+    // no page heading above the list (owner, 2026-11-18)
+    expect(screen.queryByRole("heading", { name: "Payment Request Settings" })).toBeNull();
     expect(screen.getByRole("checkbox", { name: "420" })).toBeChecked();
     expect(screen.getByRole("checkbox", { name: "310" })).not.toBeChecked();
     expect(screen.queryByText(/Connect to Xero/)).toBeNull();

@@ -86,7 +86,8 @@ summaries; change the two together.
 Figma `LGkVZqcyxSIh6pp5ihDjXw` node 348:1007 (the redesign), drawn here in the classic look
 (owner, 2026-11-10: this branch). `StepAccountingSetup` holds the step's own screens and saves
 every change as it is made through minty-onboarding-api's `/accounting` routes (`lib/accountingApi.ts`),
-so Save & Next only moves on; the kicker counts them (_Accounting setup · 3 of 5_).
+so Save & Next only moves on. The side menu shows where the screen is (no "Accounting setup · N of M"
+line since 2026-11-18, owner).
 
 - **4.1** _Use Minty independently_ or _Connect with Xero_ (`POST /accounting/mode`). Xero opens
   today's Connect to Xero screen (its Back returns to 4.1), and the wizard goes on as before. A
@@ -125,7 +126,7 @@ so Save & Next only moves on; the kicker counts them (_Accounting setup · 3 of 
   `POST /accounting/sales-accounts`; an unticked list's methods go. A company that has answered
   4.2 but not this screen resumes on it.
 - **No 4.3 or 4.5 (owner, 2026-11-11).** The Minty path is four screens since 2026-11-17 - 4.1,
-  4.2, the sales accounts, 4.4 ("4 of 4"); the Xero path 4.1, X1, X3. 4.3's row design (Figma 348:1209: `.acs-coa-row`, the bag or
+  4.2, the sales accounts, 4.4; the Xero path 4.1, X1, X3. 4.3's row design (Figma 348:1209: `.acs-coa-row`, the bag or
   scooter glyph, the dashed add row) moved to step 5's sales-method lists. 4.4 uses Petty Cash
   Settings' `.autofill-btn` with the design's logo (`public/accounting/autofill-logo.png`).
 - **4.4** the expense accounts. _Auto Fill_ adds the template's ticked
@@ -175,9 +176,19 @@ company's daily-closing accounts point to step 6 (2026-11-11). Tests: `component
 **Accounting Setup's side menu (owner, 2026-11-18).** Step 4 lists its screens in the same side
 menu as Petty Cash Settings (`.pc-side-menu.is-wide`): Minty - How Minty works, Business type, Sales
 accounts, Expense accounts; Xero - How Minty works, Connect to Xero, Expense accounts. The screen shown
-is marked, those passed are ticked and go back on a click, those ahead are disabled. Its column is
+is marked, and any screen already reached is a click away, forward too after going back (those
+between ticked, the furthest one with its number); those never reached are disabled. Petty Cash
+Settings' menu goes forward the same way, up to `maxReached`. Both are drawn as Figma 348:1006
+section C has them: a plain numbered list, no card - finished = a teal circle with a check, current =
+a teal circle with its number and a bold label, ahead = an outlined circle. Its column is
 904px, so the menu sits further out and hides below 1400px (Petty Cash's below 1180px). Tests:
 `components/__tests__/AccountingSetup.test.tsx` (Accounting Setup's side menu).
+
+**Page titles (owner, 2026-11-18).** Every step's title is the one `.page-head`: centred, 30px, its
+line under it 16px - no inline sizes or left-aligned settings pages, and no small "Petty Cash
+Settings · Sales methods" line. Petty Cash's and Payment Request's account-code pages have no page
+title, only their card's ("Petty Cash Account Code", "Payment Account Code"). The free-trial
+page (`.module-head`, 25px) is the one exception, sized to its frame.
 
 **Petty Cash Settings' pages (owner, 2026-11-18).** Step 5 is two pages, each its own sub-step in
 the side menu: **Sales** (the sales methods below; its Save & Next saves them and opens the next page)

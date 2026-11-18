@@ -166,8 +166,15 @@ export function StepAccountingSetup(props: Props) {
   const remember = (patch: Partial<typeof accounting>) =>
     set((prev) => ({ accounting: { ...accountingOf(prev), ...patch } }));
 
+  // The screens this visit has opened, so the side menu can go forward again to any of them.
+  const [seen, setSeen] = useState<Set<Sub>>(() => {
+    const opened = new Set<Sub>([firstSub(state)]);
+    if (state.xero.connected && accounting.mode === "xero") opened.add("xexpense");
+    return opened;
+  });
   const go = (to: Sub) => {
     setSub(to);
+    setSeen((prev) => (prev.has(to) ? prev : new Set(prev).add(to)));
     if (typeof window !== "undefined") window.scrollTo({ top: 0 });
   };
 
@@ -183,11 +190,12 @@ export function StepAccountingSetup(props: Props) {
     go(i > 0 ? subs[i - 1] : "mode");
   };
 
-  const position = subs.indexOf(sub) + 1;
-  const kicker = `Accounting setup · ${position} of ${subs.length}`;
-
   // Accounting Setup's own side menu (owner, 2026-11-18), as Petty Cash Settings has: the path's
-  // screens, the current one marked, the ones passed ticked and a click away.
+  // screens, the current one marked, the ones passed ticked and a click away. Any screen already
+  // reached stays a click away after going back (owner, 2026-11-18): the ones between ticked, the
+  // furthest one with its number.
+  const here = subs.indexOf(sub);
+  const furthest = Math.max(here, ...subs.map((s, i) => (seen.has(s) ? i : -1)));
   const SUB_LABEL: Record<Sub, string> = {
     mode: "How Minty works",
     business: "Business type",
@@ -200,16 +208,15 @@ export function StepAccountingSetup(props: Props) {
     <aside className="pc-side-menu is-wide" aria-label="Accounting Setup screens">
       <div className="pc-side-title">Accounting Setup</div>
       {subs.map((s, i) => {
-        const here = subs.indexOf(sub);
         const active = i === here;
-        const done = i < here;
+        const done = !active && i < furthest;
         return (
           <button
             key={s}
             type="button"
             className={"pc-side-item" + (active ? " active" : "") + (done ? " done" : "")}
             onClick={() => go(s)}
-            disabled={!done}
+            disabled={active || i > furthest}
             aria-current={active ? "step" : undefined}
           >
             <span className="substep-circle">{done ? <Icon.CheckSm /> : String(i + 1)}</span>
@@ -229,7 +236,6 @@ export function StepAccountingSetup(props: Props) {
   if (sub === "xero") {
     return withMenu(
       <StepConnectXero
-        kicker={kicker}
         state={state}
         // Connected: on to X3, the Xero expense accounts Minty uses; not yet: the wizard goes on.
         next={() => (state.xero.connected ? go("xexpense") : next())}
@@ -271,7 +277,6 @@ export function StepAccountingSetup(props: Props) {
   if (sub === "mode") {
     return withMenu(
       <ModeScreen
-        kicker={kicker}
         initial={accounting.mode}
         connected={state.xero.connected}
         nav={nav}
@@ -292,7 +297,6 @@ export function StepAccountingSetup(props: Props) {
   if (sub === "business") {
     return withMenu(
       <BusinessScreen
-        kicker={kicker}
         initial={accounting}
         nav={nav}
         onSave={async (businessType, usesSalesCash) => {
@@ -313,7 +317,6 @@ export function StepAccountingSetup(props: Props) {
   if (sub === "sales") {
     return withMenu(
       <SalesAccountsScreen
-        kicker={kicker}
         initial={salesTicksOf(accountingOf(state))}
         nav={nav}
         onSave={async (ticks) => {
@@ -339,7 +342,6 @@ export function StepAccountingSetup(props: Props) {
   if (!view) {
     return withMenu(
       <div className="acs" aria-busy={!loadError}>
-        <p className="acs-kicker">{kicker}</p>
         {loadError ? (
           <div className="acs-banner is-warn" role="alert">
             <p>{loadError}</p>
@@ -368,7 +370,6 @@ export function StepAccountingSetup(props: Props) {
       <XeroAccountsScreen
         key={sub}
         kind="expense"
-        kicker={kicker}
         setup={view}
         nav={nav}
         onRefresh={refreshXero}
@@ -387,7 +388,6 @@ export function StepAccountingSetup(props: Props) {
       <AccountsScreen
         key={sub}
         kind={sub}
-        kicker={kicker}
         setup={view}
         token={token}
         entityId={entityId}
@@ -403,13 +403,11 @@ export function StepAccountingSetup(props: Props) {
 // ---- 4.1 ----------------------------------------------------------------------------------------
 
 function ModeScreen({
-  kicker,
   initial,
   connected,
   nav,
   onSave,
 }: {
-  kicker: string;
   initial: "minty" | "xero" | null;
   connected: boolean;
   nav: (onNext: () => void, busy?: boolean) => React.ReactNode;
@@ -437,7 +435,6 @@ function ModeScreen({
   return (
     <div className="acs acs-mode">
       <div className="page-head acs-head acs-mode-head">
-        <p className="acs-kicker">{kicker}</p>
         <h2 id="acs-mode-title">How would you like Minty to work?</h2>
         <p>Choose how Minty keeps your books.</p>
       </div>
@@ -536,12 +533,10 @@ const SALES_ACCOUNTS: {
 const NO_SALES_ACCOUNT = "No sales account is ticked yet. Tick at least one to continue.";
 
 function SalesAccountsScreen({
-  kicker,
   initial,
   nav,
   onSave,
 }: {
-  kicker: string;
   initial: SalesTicks;
   nav: (onNext: () => void, busy?: boolean) => React.ReactNode;
   onSave: (ticks: SalesTicks) => Promise<boolean>;
@@ -570,7 +565,6 @@ function SalesAccountsScreen({
   return (
     <div className="acs acs-sales-accounts">
       <div className="page-head acs-head acs-mode-head">
-        <p className="acs-kicker">{kicker}</p>
         <h2 id="acs-sales-title">Your sales accounts</h2>
         <p>
           Minty records your daily sales in three accounts. Tick the ones your business takes — your
@@ -637,12 +631,10 @@ function SalesAccountsScreen({
 // ---- 4.2 ----------------------------------------------------------------------------------------
 
 function BusinessScreen({
-  kicker,
   initial,
   nav,
   onSave,
 }: {
-  kicker: string;
   initial: { businessType: BusinessType | null; usesSalesCash: boolean | null };
   nav: (onNext: () => void, busy?: boolean) => React.ReactNode;
   onSave: (businessType: BusinessType | null, usesSalesCash: boolean) => Promise<boolean>;
@@ -687,7 +679,6 @@ function BusinessScreen({
   return (
     <div className="acs acs-business">
       <div className="page-head acs-head acs-mode-head">
-        <p className="acs-kicker">{kicker}</p>
         <h2>What best describes your business?</h2>
         <p>
           We&apos;ll suggest accounts that fit your industry on the next two screens. Nothing is
@@ -1079,7 +1070,6 @@ function RowMenu({
 
 function AccountsScreen({
   kind,
-  kicker,
   setup,
   token,
   entityId,
@@ -1088,7 +1078,6 @@ function AccountsScreen({
   nav,
 }: {
   kind: AccountKind;
-  kicker: string;
   setup: Setup;
   token: string;
   entityId: string;
@@ -1217,7 +1206,6 @@ function AccountsScreen({
   return (
     <div className={"acs" + (sales ? " acs-sales" : " acs-expense")}>
       <div className="page-head acs-head acs-mode-head">
-        <p className="acs-kicker">{kicker}</p>
         <h2>{title}</h2>
         <p>{lede}</p>
       </div>
@@ -1475,14 +1463,12 @@ const XERO_VISIBLE = 10;
  * Minty uses. Accounts not ticked stay in Xero; they just aren't offered in Minty. */
 function XeroAccountsScreen({
   kind,
-  kicker,
   setup,
   nav,
   onRefresh,
   onSave,
 }: {
   kind: AccountKind;
-  kicker: string;
   setup: Setup;
   nav: (onNext: () => void, busy?: boolean) => React.ReactNode;
   onRefresh: () => Promise<void>;
@@ -1531,7 +1517,6 @@ function XeroAccountsScreen({
   return (
     <div className="acs acs-sales acs-xero">
       <div className="page-head acs-head acs-mode-head">
-        <p className="acs-kicker">{kicker}</p>
         <h2>Which {noun} accounts should Minty use?</h2>
         <p>
           {kind === "sales"

@@ -55,6 +55,9 @@ function serverToday(today: string | null) {
   );
 }
 
+// jsdom has no scrollIntoView; a refused Save & Next scrolls to the missing balance.
+Element.prototype.scrollIntoView = vi.fn();
+
 afterEach(() => {
   vi.unstubAllGlobals();
 });

@@ -44,7 +44,8 @@ function renderStep(selected: Record<string, boolean>) {
 describe("StepPettyCodes", () => {
   it("lists step 4's expense accounts under Petty Cash Account Code", () => {
     renderStep({ "5000": true });
-    expect(screen.getByRole("heading", { name: "Petty Cash Settings" })).toBeInTheDocument();
+    // no page heading above the list (owner, 2026-11-18)
+    expect(screen.queryByRole("heading", { name: "Petty Cash Settings" })).toBeNull();
     expect(screen.getByText("Petty Cash Account Code")).toBeInTheDocument();
     expect(screen.getByText("5000 · Inventory Purchases")).toBeInTheDocument();
     expect(screen.getByText("6003 · Rent")).toBeInTheDocument();

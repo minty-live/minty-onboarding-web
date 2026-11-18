@@ -344,22 +344,17 @@ textarea {
     border-color 0.2s ease,
     transform 0.15s ease;
 }
-/* Petty Cash side menu — left-anchored vertical card */
+/* The side menu (Petty Cash Settings, Accounting Setup): a plain numbered list left of the page
+   (owner, 2026-11-18 - Figma 348:1006 section C). Done = teal circle with a check, here = teal
+   circle with its number and a bold label, ahead = an outlined circle. */
 .pc-side-menu {
   position: fixed;
   top: 200px;
   left: max(20px, calc(50vw - 360px - 220px));
   width: 200px;
-  background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  padding: 14px;
-  box-shadow:
-    0 14px 32px rgba(15, 23, 42, 0.1),
-    0 2px 8px rgba(15, 23, 42, 0.05);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
   z-index: 20;
 }
 @media (max-width: 1180px) {
@@ -377,70 +372,58 @@ textarea {
     display: none;
   }
 }
-/* Side menu sits in its own column; main page content stays centered. */
 .pc-side-title {
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 600;
   color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 4px 8px 8px;
-  border-bottom: 1px solid var(--line);
-  margin-bottom: 4px;
+  padding: 0 0 4px;
 }
 .pc-side-item {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 14px 10px 10px;
-  border-radius: 12px;
-  border: 1.5px solid var(--line-strong);
-  background: var(--bg);
-  color: var(--ink-2);
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
   font-family: inherit;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   text-align: left;
   width: 100%;
   user-select: none;
   cursor: pointer;
-  transition:
-    background 0.15s ease,
-    border-color 0.15s ease,
-    color 0.15s ease;
+  transition: color 0.15s ease;
 }
 .pc-side-item:hover:not(:disabled):not(.active) {
-  border-color: color-mix(in oklab, var(--accent) 55%, var(--line-strong));
   color: var(--ink);
+}
+.pc-side-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 8px;
 }
 .pc-side-item:disabled {
   cursor: default;
-  opacity: 0.55;
-}
-/* The current sub-step is disabled (no-op self-navigation) but must still
-     read as the active step, not a dimmed one. */
-.pc-side-item.active:disabled {
-  opacity: 1;
 }
 .pc-side-item.active {
-  background: #46d8cc;
-  border-color: transparent;
-  color: #054b44;
-  box-shadow: 0 4px 12px rgba(70, 216, 204, 0.35);
+  color: var(--ink);
+  font-weight: 700;
 }
 .pc-side-item.done {
-  color: var(--ink);
-  border-color: color-mix(in oklab, var(--accent) 45%, var(--line-strong));
+  font-weight: 500;
 }
-.pc-side-item.active .substep-circle {
-  border-color: rgba(5, 75, 68, 0.4);
-  background: rgba(255, 255, 255, 0.85);
+.pc-side-item .substep-circle {
+  width: 24px;
+  height: 24px;
+  font-size: 12px;
 }
+.pc-side-item.active .substep-circle,
 .pc-side-item.done .substep-circle {
-  background: linear-gradient(135deg, #00cbc6 0%, #00d5bf 100%);
+  background: var(--accent-ink);
   border-color: transparent;
   color: #fff;
-  box-shadow: 0 2px 6px rgba(0, 203, 198, 0.35);
 }
 @media (max-width: 1180px) {
   .pc-side-menu {
@@ -4279,15 +4262,6 @@ textarea {
   max-width: none;
   margin-bottom: 18px;
 }
-.acs-kicker,
-.page-head .acs-kicker {
-  margin: 0 0 10px;
-  font-size: 12.5px;
-  line-height: 1.45;
-  font-weight: 600;
-  text-transform: uppercase;
-  color: var(--accent-ink);
-}
 .acs-note,
 .acs-hint {
   font-size: 13px;
@@ -5814,12 +5788,6 @@ textarea {
 
 /* Step 5's sales methods (owner, 2026-11-17; Figma 464:73 row 2): a card per ticked sales account,
    its methods as chips (drag or arrow keys to reorder), an add field with "+ Add", the Cash card. */
-.pc-sales-head {
-  text-align: center;
-}
-.pc-sales-head h2 {
-  font-size: 26px;
-}
 .pc-autofill-row {
   flex-wrap: wrap;
   justify-content: center;

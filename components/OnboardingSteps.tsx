@@ -740,10 +740,8 @@ export function StepConnectXero({
   clearXeroConflict,
   releaseXeroConflict,
   saveAndExit,
-  kicker,
 }: {
   /** Accounting Setup's "Accounting setup · N of M" line: X1 is one of step 4's screens. */
-  kicker?: string;
 } & Pick<
   StepProps,
   | "state"
@@ -834,14 +832,9 @@ export function StepConnectXero({
   };
   return (
     <>
-      <div
-        className="page-head"
-        style={{ textAlign: "center", maxWidth: "none", marginBottom: 18 }}
-      >
-        {kicker && <p className="acs-kicker">{kicker}</p>}
+      <div className="page-head">
         <h2
           style={{
-            fontSize: 30,
             display: "inline-flex",
             alignItems: "center",
             gap: 10,
@@ -1296,11 +1289,9 @@ export function StepSalesSetting({
       : "These become the fields on your daily report’s Sales step.";
   const openingPage = (
     <>
-      <div className="page-head" style={{ textAlign: "left", marginBottom: 18 }}>
-        <h2 style={{ fontSize: 30 }}>Petty Cash Opening Balance</h2>
-        <p style={{ marginTop: 6 }}>
-          Set the starting point so future movements reconcile correctly.
-        </p>
+      <div className="page-head">
+        <h2>Petty Cash Opening Balance</h2>
+        <p>Set the starting point so future movements reconcile correctly.</p>
       </div>
       <div className="pc-stack">
         <div
@@ -1369,8 +1360,7 @@ export function StepSalesSetting({
   );
   const salesPage = (
     <>
-      <div className="page-head pc-page-head pc-sales-head">
-        <p className="acs-kicker">Petty Cash Settings · Sales methods</p>
+      <div className="page-head">
         <h2>Type of sales method of your company</h2>
         <p>{subtitle}</p>
       </div>
@@ -1513,11 +1503,6 @@ export function StepPettyCodes({
 
   return (
     <>
-      <div className="page-head" style={{ textAlign: "left", marginBottom: 18 }}>
-        <h2 style={{ fontSize: 30 }}>Petty Cash Settings</h2>
-        <p style={{ marginTop: 6 }}>Choose which of your expense accounts appear in Petty Cash.</p>
-      </div>
-
       <div className="pc-stack" ref={listRef}>
         <AccountCodesCard
           codes={codes}
@@ -1657,9 +1642,9 @@ export function StepAccountCode({
 
   return (
     <>
-      <div className="page-head" style={{ textAlign: "left", marginBottom: 18 }}>
-        <h2 style={{ fontSize: 30 }}>Account Code Setting</h2>
-        <p style={{ marginTop: 6 }}>
+      <div className="page-head">
+        <h2>Account Code Setting</h2>
+        <p>
           {mappingOnly
             ? "The Xero accounts daily closing posts to."
             : "Map each cash flow to the right account in your ledger — these settings need manual input from you."}
@@ -1874,9 +1859,9 @@ export function StepOthers({
 
   return (
     <>
-      <div className="page-head" style={{ textAlign: "left", marginBottom: 22 }}>
-        <h2 style={{ fontSize: 30 }}>Contact Setup</h2>
-        <p style={{ marginTop: 6 }}>
+      <div className="page-head">
+        <h2>Contact Setup</h2>
+        <p>
           {cashSales
             ? "Choose the Xero contacts used for the director's account, cash sales, and cash discrepancy."
             : "Choose the Xero contacts used for the director's account and cash discrepancy."}
@@ -2016,13 +2001,6 @@ export function StepBills({
 
   return (
     <>
-      <div className="page-head" style={{ textAlign: "left", marginBottom: 18 }}>
-        <h2 style={{ fontSize: 30 }}>Payment Request Settings</h2>
-        <p style={{ marginTop: 6 }}>
-          Choose which of your expense accounts appear in Payment Request.
-        </p>
-      </div>
-
       <div className="pc-stack" ref={billCodesRef}>
         <AccountCodesCard
           codes={billCodes}
@@ -2225,9 +2203,9 @@ export function StepInvite({
 
   return (
     <>
-      <div className="page-head" style={{ textAlign: "center", marginBottom: 18 }}>
-        <h2 style={{ fontSize: 30 }}>User Invite</h2>
-        <p style={{ marginTop: 6 }}>
+      <div className="page-head">
+        <h2>User Invite</h2>
+        <p>
           Heads up — users can be added or removed any time from <b>Settings → Users</b>.
         </p>
       </div>

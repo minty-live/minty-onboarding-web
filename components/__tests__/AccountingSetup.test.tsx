@@ -177,6 +177,20 @@ describe("Accounting Setup's side menu", () => {
     expect(await screen.findByText("How would you like Minty to work?")).toBeInTheDocument();
   });
 
+  it("goes forward again to any screen already reached", async () => {
+    // A company that has chosen its sales accounts opens on Expense accounts.
+    renderStep(RETAIL_CHOSEN);
+    const expense = () => menu().getByRole("button", { name: /Expense accounts/ });
+    await waitFor(() => expect(expense()).toHaveAttribute("aria-current", "step"));
+    fireEvent.click(menu().getByRole("button", { name: /Business type/ }));
+    expect(await screen.findByText("What best describes your business?")).toBeInTheDocument();
+    // the ones between are ticked and clickable, the furthest one too
+    expect(menu().getByRole("button", { name: /Sales accounts/ })).toBeEnabled();
+    expect(expense()).toBeEnabled();
+    fireEvent.click(expense());
+    await waitFor(() => expect(expense()).toHaveAttribute("aria-current", "step"));
+  });
+
   it("lists the Xero path's three screens", async () => {
     renderStep({ mode: "xero", businessType: null, usesSalesCash: null });
     await screen.findByText("Xero Integration");
@@ -215,10 +229,16 @@ describe("4.1 How would you like Minty to work?", () => {
   });
 
   it("counts Connect to Xero as one of step 4's screens", async () => {
-    // Mode, X1 (Connect), X3: X1 is 2 of 3, like the screens around it.
+    // Mode, X1 (Connect), X3: the side menu marks X1, the second of three. No "N of M" line
+    // above the screens (owner, 2026-11-18).
     renderStep({ mode: "xero", businessType: null, usesSalesCash: null });
     expect(await screen.findByText("Xero Integration")).toBeInTheDocument();
-    expect(screen.getByText(/Accounting setup · 2 of 3/i)).toBeInTheDocument();
+    const menu = within(screen.getByRole("complementary", { name: "Accounting Setup screens" }));
+    expect(menu.getByRole("button", { name: /Connect to Xero/ })).toHaveAttribute(
+      "aria-current",
+      "step",
+    );
+    expect(screen.queryByText(/Accounting setup ·/i)).toBeNull();
   });
 
   it("Use Minty independently goes on to the business questions", async () => {
@@ -280,7 +300,6 @@ describe("the sales accounts screen", () => {
   it("opens after 4.2 with the business type's picks: a retail shop takes Cash and Electronic", () => {
     renderStep({ mode: "minty", businessType: "retail", usesSalesCash: true });
     expect(screen.getByText("Your sales accounts")).toBeInTheDocument();
-    expect(screen.getByText(/Accounting setup · 3 of 4/i)).toBeInTheDocument();
     expect(box(/Sales - Cash/)).toHaveAttribute("aria-checked", "true");
     expect(box(/Sales - Electronic Payment/)).toHaveAttribute("aria-checked", "true");
     expect(box(/Sales - Delivery/)).toHaveAttribute("aria-checked", "false");
@@ -347,7 +366,6 @@ describe("4.4 the expense list", () => {
   it("is the last screen: Save & Next leaves the step", async () => {
     const { next } = renderStep({ ...RETAIL_CHOSEN });
     await screen.findByText("What do you usually spend money on?");
-    expect(screen.getByText(/Accounting setup · 4 of 4/i)).toBeInTheDocument();
     saveAndNext();
     await waitFor(() => expect(next).toHaveBeenCalledTimes(1));
     expect(screen.queryByText(/accounts ready/)).toBeNull();
