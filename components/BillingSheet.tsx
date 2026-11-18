@@ -123,6 +123,26 @@ function reason(err: unknown, fallback: string): string {
 }
 
 /**
+ * The Part 13 roles (@minty/shared tokens.css) the Stripe fields use, written out as hex:
+ * Stripe's iframe cannot read our CSS variables. Change one here only when its role changes
+ * there. The only literal colours in this file (app/__tests__/noRawColours.test.ts).
+ */
+const STRIPE_ROLE_COLOURS = {
+  /** --color-text-primary */
+  textPrimary: "#16202e",
+  /** --color-text-muted: placeholders */
+  textMuted: "#8b93a0",
+  /** --color-border-input */
+  borderInput: "#d8dee4",
+  /** --color-status-danger-ink: the error text */
+  danger: "#b42318",
+  /** --color-border-focus */
+  focus: "#54d3da",
+  /** --color-border-focus at 18%, the focus glow */
+  focusGlow: "rgb(84 211 218 / 0.18)",
+} as const;
+
+/**
  * How the Elements iframes are themed, so the fields inside them are the fields the design
  * draws rather than Stripe's stock blue-grey.
  *
@@ -139,28 +159,28 @@ const STRIPE_APPEARANCE: Appearance = {
   variables: {
     fontFamily: "Inter, system-ui, -apple-system, sans-serif",
     fontSizeBase: "14px",
-    colorText: "#16202E",
-    colorTextPlaceholder: "#9AA6AC",
-    colorDanger: "#b4231f",
+    colorText: STRIPE_ROLE_COLOURS.textPrimary,
+    colorTextPlaceholder: STRIPE_ROLE_COLOURS.textMuted,
+    colorDanger: STRIPE_ROLE_COLOURS.danger,
     borderRadius: "8px",
     spacingUnit: "4px",
   },
   rules: {
     ".Input": {
-      border: "1px solid #D7DEE2",
+      border: `1px solid ${STRIPE_ROLE_COLOURS.borderInput}`,
       boxShadow: "none",
       padding: "12px 14px",
     },
     ".Input:focus": {
-      // Minty Action (tokens.css): Stripe's iframe cannot read our CSS variables, so the hex
-      border: "1px solid #3CBCC3",
-      boxShadow: "0 0 0 3px rgba(60, 188, 195, 0.18)",
+      // The focus role, as every other input in this app (border-focus).
+      border: `1px solid ${STRIPE_ROLE_COLOURS.focus}`,
+      boxShadow: `0 0 0 3px ${STRIPE_ROLE_COLOURS.focusGlow}`,
       outline: "none",
     },
     ".Label": {
       fontWeight: "600",
       fontSize: "13px",
-      color: "#16202E",
+      color: STRIPE_ROLE_COLOURS.textPrimary,
     },
   },
 };

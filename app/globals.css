@@ -15,30 +15,27 @@
 @import "@minty/shared/tokens.css";
 @source "../node_modules/@minty/shared/src";
 
-/* Brand tokens shared with the payment-request module so Tailwind utilities
-   like text-primary / bg-secondary resolve to the same colours. */
-@theme {
-  --color-primary: #656565;
-  --color-secondary: #54d3da;
-}
-
+/* ONE PALETTE (owner, 2026-11-18): every colour below is a Part 13 role from
+   @minty/shared/tokens.css (`--color-*`). The short local names are aliases of those roles, kept
+   so the rules read as before; never give one a hex. The old `@theme` --color-primary (#656565)
+   and --color-secondary (#54d3da) are gone - nothing used them, and brand teal is never a fill.
+   Inputs (and unticked boxes and radios) are drawn with --color-border-input, errors with
+   --color-action-danger (lines) and --color-status-danger-ink (text). */
 :root {
-  --bg: #ffffff;
-  --surface: #fbfbfa;
-  --surface-2: #f5f5f3;
-  --line: #ececea;
-  --line-strong: #d9d9d6;
-  --ink: #1b1d1c;
-  --ink-2: #4a4d4b;
-  --muted: #8a8d8b;
-  --muted-2: #b2b5b3;
+  --bg: var(--color-surface-page);
+  --surface: var(--color-surface-sunk);
+  --surface-2: var(--color-surface-sunk);
+  --line: var(--color-border-subtle);
+  --line-strong: var(--color-border-default);
+  --ink: var(--color-text-primary);
+  --ink-2: var(--color-text-secondary);
+  --muted: var(--color-text-muted);
+  --muted-2: var(--color-text-disabled);
   --accent: var(--color-action-primary); /* Minty Action, the shared token */
   --accent-hover: var(--color-action-primary-hover);
   --accent-soft: var(--color-state-selected);
   --accent-ink: var(--color-text-link);
-  --warn: #e8a13a;
-  --warn-soft: #fcf2dc;
-  --danger: #d9534f;
+  --danger: var(--color-action-danger);
   --radius: 14px;
   --radius-sm: 10px;
   --shadow-sm: 0 1px 2px rgba(15, 20, 25, 0.04), 0 1px 3px rgba(15, 20, 25, 0.05);
@@ -165,7 +162,7 @@ textarea {
   gap: 6px;
   font-size: 12.5px;
   color: var(--ink-2);
-  background: #eef0f3;
+  background: var(--color-surface-sunk);
   border-radius: 0;
   cursor: pointer;
   user-select: none;
@@ -190,7 +187,7 @@ textarea {
 }
 /* Not the selected tab: it keeps its Minty Action fill on hover (owner, 2026-11-18). */
 .step:hover:not(.locked):not(.not-clickable):not(.active) {
-  background: #e6e9ed;
+  background: var(--color-state-hover);
 }
 .step.locked {
   cursor: not-allowed;
@@ -406,7 +403,7 @@ textarea {
   color: var(--ink);
 }
 .pc-side-item:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--color-border-focus);
   outline-offset: 2px;
   border-radius: 8px;
 }
@@ -427,9 +424,9 @@ textarea {
 }
 .pc-side-item.active .substep-circle,
 .pc-side-item.done .substep-circle {
-  background: var(--accent-ink);
+  background: var(--color-action-tick);
   border-color: transparent;
-  color: #fff;
+  color: var(--color-text-inverse);
 }
 @media (max-width: 1180px) {
   .pc-side-menu {
@@ -491,7 +488,7 @@ textarea {
 .field textarea {
   appearance: none;
   -webkit-appearance: none;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--color-border-input);
   border-radius: 12px;
   padding: 11px 13px;
   font-size: 14px;
@@ -506,7 +503,7 @@ textarea {
 .field input:hover,
 .field select:hover,
 .field textarea:hover {
-  border-color: var(--line-strong);
+  border-color: var(--color-border-input);
 }
 .field input:focus,
 .field input:focus-visible,
@@ -515,13 +512,13 @@ textarea {
 .field textarea:focus,
 .field textarea:focus-visible {
   outline: none;
-  border-color: var(--line-strong);
+  border-color: var(--color-border-focus);
   box-shadow: none;
 }
 .field .input-prefix {
   display: flex;
   align-items: center;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--color-border-input);
   border-radius: 12px;
   background: var(--bg);
   overflow: hidden;
@@ -534,7 +531,7 @@ textarea {
   height: 100%;
   display: grid;
   place-items: center;
-  border-right: 1px solid var(--line-strong);
+  border-right: 1px solid var(--color-border-input);
 }
 .field .input-prefix input {
   border: 0;
@@ -554,7 +551,7 @@ textarea {
   border: 0;
 }
 .field .input-prefix:focus-within {
-  border-color: var(--line-strong);
+  border-color: var(--color-border-focus);
   box-shadow: none;
 }
 /* Phone Number: the dial-code picker beside the number, one row at every width. The picker
@@ -610,16 +607,19 @@ textarea {
 }
 .btn-primary {
   background: var(--color-action-primary);
-  color: white;
+  color: var(--color-action-on-primary);
   box-shadow: 0 4px 12px rgb(60 188 195 / 0.28);
 }
 .btn-primary:hover {
   background: var(--color-action-primary-hover);
   box-shadow: 0 8px 22px rgb(60 188 195 / 0.4);
 }
+.btn-primary:active:not([disabled]) {
+  background: var(--color-action-primary-pressed);
+}
 .btn-primary[disabled] {
-  background: var(--line-strong);
-  color: white;
+  background: var(--color-action-disabled);
+  color: var(--color-text-disabled);
   cursor: not-allowed;
   box-shadow: none;
   transform: none;
@@ -731,7 +731,7 @@ textarea {
   border: 0;
   padding: 0;
   cursor: default;
-  background: rgba(255, 255, 255, 0.6);
+  background: var(--color-overlay-scrim);
   -webkit-backdrop-filter: blur(3px);
   backdrop-filter: blur(3px);
 }
@@ -742,19 +742,17 @@ textarea {
 .mw-dialog {
   max-width: 435px;
   border-radius: 24px;
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  background: #fff;
+  border: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-raised);
   padding: 48px;
-  box-shadow:
-    0 4px 8px rgba(15, 23, 42, 0.08),
-    0 12px 32px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-modal);
 }
 .mw-dialog-title {
   margin: 0;
   font-size: 26px;
   font-weight: 700;
   line-height: 1.25;
-  color: #000;
+  color: var(--color-text-primary);
 }
 .mw-dialog-art {
   display: block;
@@ -813,30 +811,30 @@ textarea {
 }
 .mw-dialog-btn.is-teal {
   background: var(--color-action-primary);
-  color: #fff;
+  color: var(--color-action-on-primary);
   font-weight: 700;
 }
 .mw-dialog-btn.is-teal:hover {
-  opacity: 0.9;
+  background: var(--color-action-primary-hover);
 }
 /* The other two tones minty-web's ConfirmDialog draws: orange to change something, and the
    grey-edged secondary beside it. Change them with it. */
 .mw-dialog-btn.is-orange {
-  background: #ea9713;
-  color: #fff;
+  background: var(--color-status-warning-ink);
+  color: var(--color-action-on-primary);
   font-weight: 700;
 }
 .mw-dialog-btn.is-orange:hover {
   opacity: 0.9;
 }
 .mw-dialog-btn.is-grey {
-  background: #fff;
-  border-color: rgba(115, 122, 135, 0.3);
-  color: #000;
+  background: var(--color-surface-raised);
+  border-color: var(--color-border-default);
+  color: var(--color-text-primary);
   font-weight: 700;
 }
 .mw-dialog-btn.is-grey:hover {
-  background: #f9fafb;
+  background: var(--color-state-hover);
 }
 .mw-dialog-btn:disabled {
   opacity: 0.6;
@@ -847,7 +845,7 @@ textarea {
   margin: 16px 0 0;
   font-size: 15px;
   line-height: 1.375;
-  color: #737a87;
+  color: var(--color-text-secondary);
   overflow-wrap: break-word;
 }
 .mw-dialog-entity b {
@@ -859,7 +857,7 @@ textarea {
   margin: 16px 0 0;
   font-size: 15px;
   line-height: 1.375;
-  color: #dc5a5a;
+  color: var(--color-status-danger-ink);
 }
 @media (max-width: 480px) {
   .mw-dialog {
@@ -889,7 +887,7 @@ textarea {
        near-black wash it replaces, and the difference in job is the point — at 12% the
        darkening barely separates anything, so it is the BLUR doing the work. Dropping the
        blur here does not degrade to "slightly less separation", it degrades to none. */
-  background: rgba(22, 32, 46, 0.12);
+  background: var(--color-overlay-scrim);
   -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
 }
@@ -897,7 +895,7 @@ textarea {
   background: var(--bg);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.22);
+  box-shadow: var(--shadow-modal);
   padding: 26px 26px 22px;
   max-width: 440px;
   width: 100%;
@@ -993,18 +991,18 @@ textarea {
 .mselect-create-input {
   width: 100%;
   padding: 12px 14px;
-  border: 1.5px solid var(--line-strong);
+  border: 1.5px solid var(--color-border-input);
   border-radius: 12px;
   font-size: 14px;
 }
 .mselect-create-input:focus,
 .mselect-create-input:focus-visible {
   outline: none;
-  border-color: var(--accent);
+  border-color: var(--color-border-focus);
   box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent) 25%, transparent);
 }
 .mselect-create-error {
-  color: #c0392b;
+  color: var(--color-status-danger-ink);
   font-size: 12.5px;
 }
 .mselect-create-actions {
@@ -1022,12 +1020,12 @@ textarea {
 }
 .mselect-create-btn.ghost {
   background: transparent;
-  color: var(--accent-ink);
-  border: 1.5px solid var(--accent);
+  color: var(--color-action-secondary-text);
+  border: 1.5px solid var(--color-action-secondary-border);
 }
 .mselect-create-btn.primary {
   background: var(--accent);
-  color: #fff;
+  color: var(--color-action-on-primary);
   border: 1.5px solid var(--accent);
 }
 .mselect-create-btn:disabled {
@@ -1051,24 +1049,25 @@ textarea {
 }
 .pc-field select {
   appearance: none;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--color-border-input);
   border-radius: 12px;
   padding: 12px 14px;
   font-size: 14px;
   background: var(--bg);
   color: var(--ink);
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238a8d8b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  /* the chevron is --color-text-muted (#676f6f), written out: a data URI cannot read var() */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23676f6f' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
   background-repeat: no-repeat;
   background-position: right 14px center;
   padding-right: 38px;
 }
 .pc-field select:hover {
-  border-color: color-mix(in oklab, var(--accent) 35%, var(--line-strong));
+  border-color: var(--color-border-input);
 }
 .pc-field select:focus,
 .pc-field select:focus-visible {
   outline: none;
-  border-color: var(--line-strong);
+  border-color: var(--color-border-focus);
   box-shadow: none;
 }
 .pc-card:focus-within {
@@ -1088,7 +1087,7 @@ textarea {
   margin-top: 8px;
   font-size: 13px;
   font-weight: 600;
-  color: var(--danger);
+  color: var(--color-status-danger-ink);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1097,19 +1096,18 @@ textarea {
   content: "*";
   font-size: 15px;
   line-height: 1;
-  color: var(--danger);
+  color: var(--color-status-danger-ink);
 }
 /* Part 15.3 error summary (components/steps/ErrorSummary.tsx): two or more problems on a refused
    submit. An inline alert in the danger tones; it takes focus, so the global ring shows on it. */
 .error-summary {
   margin-bottom: 16px;
   padding: 12px 16px;
-  /* This look's tokens: --danger (#d9534f) as text on its tint is below AA at 14px, so the
-     danger shows as the edge and tint while the words stay --ink. */
-  border-left: 4px solid var(--danger);
+  /* The danger pair (status-danger-bg / -ink, AA at 14px) with the action-danger edge. */
+  border-left: 4px solid var(--color-action-danger);
   border-radius: var(--radius-sm);
-  background: rgba(217, 83, 79, 0.1);
-  color: var(--ink);
+  background: var(--color-status-danger-bg);
+  color: var(--color-status-danger-ink);
   font-size: 14px;
   overflow-wrap: anywhere;
 }
@@ -1263,8 +1261,8 @@ textarea {
     background 0.15s ease;
 }
 .method-trash:hover {
-  color: var(--danger);
-  background: rgba(217, 83, 79, 0.1);
+  color: var(--color-status-danger-ink);
+  background: var(--color-status-danger-bg);
 }
 .method-drag {
   color: var(--muted);
@@ -1301,9 +1299,9 @@ textarea {
   width: 100%;
   margin-top: 12px;
   padding: 14px;
-  border: 1.5px solid var(--accent);
+  border: 1.5px solid var(--color-action-secondary-border);
   background: transparent;
-  color: var(--accent-ink);
+  color: var(--color-action-secondary-text);
   font-weight: 600;
   font-size: 14.5px;
   border-radius: 12px;
@@ -1341,8 +1339,8 @@ textarea {
 }
 .btn-cancel-outline {
   background: transparent;
-  color: var(--accent-ink);
-  border: 1.5px solid var(--accent);
+  color: var(--color-action-secondary-text);
+  border: 1.5px solid var(--color-action-secondary-border);
   border-radius: 12px;
   padding: 13px 20px;
   font-size: 14.5px;
@@ -1356,7 +1354,7 @@ textarea {
 }
 .btn-mint-pill {
   background: var(--accent);
-  color: #fff;
+  color: var(--color-action-on-primary);
   border: 1.5px solid var(--accent);
   border-radius: 12px;
   padding: 13px 20px;
@@ -1369,8 +1367,8 @@ textarea {
     opacity 0.15s ease;
 }
 .btn-mint-pill:hover:not(:disabled) {
-  background: var(--accent-ink);
-  border-color: var(--accent-ink);
+  background: var(--color-action-primary-hover);
+  border-color: var(--color-action-primary-hover);
 }
 .btn-mint-pill:disabled {
   opacity: 0.55;
@@ -1419,7 +1417,7 @@ textarea {
   cursor: pointer;
   line-height: 1;
   color: var(--accent-ink);
-  background: #fff;
+  background: var(--color-surface-card);
   border: 2px solid var(--color-action-primary);
   isolation: isolate;
   overflow: hidden;
@@ -1449,7 +1447,7 @@ textarea {
 }
 .autofill-btn:hover {
   padding: 8px 28px;
-  color: #fff;
+  color: var(--color-action-on-primary);
 }
 .autofill-btn:hover::after {
   opacity: 1;
@@ -1459,7 +1457,7 @@ textarea {
   transform: scale(0.97);
 }
 .autofill-btn.is-active {
-  color: #fff;
+  color: var(--color-action-on-primary);
   border-color: transparent;
 }
 .autofill-btn.is-active::after {
@@ -1488,7 +1486,16 @@ textarea {
 }
 .autofill-btn:hover .autofill-spark,
 .autofill-btn.is-active .autofill-spark {
-  color: #fff;
+  color: var(--color-action-on-primary);
+}
+/* The mark is teal (#46afa3): on the Minty Action fill it vanished, so it turns white there,
+   with the label and the sparkle. */
+.autofill-logo {
+  transition: filter 0.25s ease;
+}
+.autofill-btn:hover .autofill-logo,
+.autofill-btn.is-active .autofill-logo {
+  filter: brightness(0) invert(1);
 }
 @keyframes autofillSparkle {
   0%,
@@ -1636,7 +1643,7 @@ textarea {
 }
 .acc-search input {
   width: 100%;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--color-border-input);
   border-radius: 12px;
   padding: 11px 38px 11px 14px;
   font-size: 14px;
@@ -1649,7 +1656,7 @@ textarea {
 }
 .acc-search input:focus {
   outline: none;
-  border-color: var(--line-strong);
+  border-color: var(--color-border-focus);
   box-shadow: none;
 }
 .acc-search-icon {
@@ -1741,13 +1748,13 @@ textarea {
   width: 22px;
   height: 22px;
   border-radius: 6px;
-  border: 1.5px solid var(--line-strong);
+  border: 1.5px solid var(--color-border-input);
   background: var(--bg);
   display: inline-grid;
   place-items: center;
   cursor: pointer;
   padding: 0;
-  color: #fff;
+  color: var(--color-action-on-primary);
   flex-shrink: 0;
   transition:
     background 0.15s ease,
@@ -1758,12 +1765,12 @@ textarea {
   border-color: var(--accent);
 }
 .mint-check.on {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--color-action-tick);
+  border-color: var(--color-action-tick);
 }
 .mint-check.on:hover {
-  background: var(--accent-ink);
-  border-color: var(--accent-ink);
+  background: var(--color-action-primary-hover);
+  border-color: var(--color-action-primary-hover);
 }
 .mint-check:active {
   transform: scale(0.94);
@@ -1791,7 +1798,7 @@ textarea {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--color-border-input);
   background: var(--bg);
   color: var(--ink);
   padding: 12px 14px;
@@ -1805,12 +1812,12 @@ textarea {
     box-shadow 0.25s ease;
 }
 .mdp-trigger:hover {
-  border-color: color-mix(in oklab, var(--accent) 35%, var(--line-strong));
+  border-color: var(--color-border-input);
 }
 .mdp-trigger.open,
 .mdp-trigger:focus-visible {
   outline: none;
-  border-color: var(--line-strong);
+  border-color: var(--color-border-focus);
   box-shadow: none;
 }
 .mdp-value {
@@ -1968,7 +1975,7 @@ textarea {
   color: var(--muted-2);
 }
 .mdp-cell.selected {
-  color: #fff;
+  color: var(--color-action-on-primary);
   font-weight: 700;
   background: var(--color-action-primary);
   box-shadow: 0 4px 10px rgb(60 188 195 / 0.32);
@@ -2072,7 +2079,7 @@ textarea {
 }
 /* Mandatory-field marker (red asterisk) — shared by every form. */
 .req {
-  color: var(--danger);
+  color: var(--color-status-danger-ink);
   margin-left: 2px;
 }
 .invite-actions {
@@ -2085,8 +2092,8 @@ textarea {
   justify-content: center;
 }
 .btn-cancel {
-  border: 1.5px solid var(--accent);
-  color: var(--accent-ink);
+  border: 1.5px solid var(--color-action-secondary-border);
+  color: var(--color-action-secondary-text);
   background: transparent;
 }
 .btn-cancel:hover {
@@ -2142,7 +2149,7 @@ textarea {
   height: 38px;
   border-radius: 50%;
   background: var(--color-action-primary);
-  color: #fff;
+  color: var(--color-action-on-primary);
   font-weight: 700;
   font-size: 14px;
   display: grid;
@@ -2231,10 +2238,10 @@ textarea {
   bottom: calc(100% + 10px);
   left: 50%;
   transform: translateX(-50%) translateY(4px);
-  background: rgba(255, 255, 255, 0.72);
+  background: color-mix(in srgb, var(--color-surface-raised) 72%, transparent);
   -webkit-backdrop-filter: blur(18px) saturate(180%);
   backdrop-filter: blur(18px) saturate(180%);
-  color: #0f172a;
+  color: var(--color-text-primary);
   font-size: 13px;
   font-weight: 400;
   letter-spacing: 0;
@@ -2246,7 +2253,7 @@ textarea {
      phone, and this popup is only opacity-hidden - it sits in the layout at all times, so
      an oversized one scrolls the whole page sideways without ever being seen. */
   max-width: min(360px, calc(100vw - 32px));
-  border: 1px solid rgba(255, 255, 255, 0.6);
+  border: 1px solid color-mix(in srgb, var(--color-surface-raised) 60%, transparent);
   box-shadow:
     0 18px 40px rgba(15, 23, 42, 0.18),
     0 2px 6px rgba(15, 23, 42, 0.06),
@@ -2312,7 +2319,7 @@ textarea {
   justify-content: space-between;
   gap: 10px;
   background: var(--bg);
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--color-border-input);
   border-radius: 12px;
   padding: 12px 14px;
   font: inherit;
@@ -2326,13 +2333,13 @@ textarea {
     background 0.15s ease;
 }
 .mselect-trigger:hover {
-  border-color: color-mix(in oklab, var(--accent) 40%, var(--line-strong));
+  border-color: var(--color-border-input);
 }
 .mselect.open .mselect-trigger,
 .mselect-trigger:focus,
 .mselect-trigger:focus-visible {
   outline: none;
-  border-color: var(--line-strong);
+  border-color: var(--color-border-focus);
   box-shadow: none;
 }
 .mselect-value {
@@ -2378,7 +2385,7 @@ textarea {
   color: var(--ink);
 }
 .mselect-clear:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--color-border-focus);
   outline-offset: 1px;
 }
 .mselect.disabled {
@@ -2527,12 +2534,12 @@ textarea {
   font-weight: 600;
 }
 .pill-status.ok {
-  background: var(--accent-soft);
-  color: var(--accent-ink);
+  background: var(--color-status-success-bg);
+  color: var(--color-status-success-ink);
 }
 .pill-status.off {
-  background: var(--surface-2);
-  color: var(--muted);
+  background: var(--color-status-neutral-bg);
+  color: var(--color-status-neutral-ink);
 }
 /* ==========================================================================
      STEP 2 — "Which free trial would you like to start today?"
@@ -2542,7 +2549,7 @@ textarea {
      1440px wide — the same width this app lays out at, so the numbers transfer
      directly rather than being scaled by eye.
 
-     THE TEALS ARE THE SHARED ONES (owner, 2026-11-18). The design's #4FC7C7 / #18C4C7
+     THE TEALS ARE THE SHARED ONES (owner, 2026-11-18). The design's two teals
      became @minty/shared/tokens.css's Minty Action (fills, checked boxes) and link ink
      (the "Selected" text, the price); they stay named here so this step's roles read
      in one place.
@@ -2551,15 +2558,14 @@ textarea {
   --pick-line: var(--color-action-primary); /* selected card border, checkbox fill */
   --pick-ink: var(--color-text-link); /* "Selected", SuperMinty, the price */
   --pick-tile: var(--color-state-selected); /* the "After trial" tile */
-  /* Summary panel, sampled from frame 01-A rather than mapped onto the app palette —
-       these are colours the design uses only here, and rounding them to --ink-2 / --accent
-       is what made the panel read as a different design from the one that was drawn. */
-  --sum-label: #737a87; /* "Selected plan", "Payment method" */
-  --sum-note: #6b7280; /* "/month" */
-  --sum-price: var(--color-text-link); /* "HK$280", "Add card" */
-  --sum-plan: #2e6ff2; /* a single module's name. NOT the bundle: SuperMinty is
-                                  --pick-ink, and the two states are deliberately
-                                  different colours in the design. */
+  /* Summary panel: frame 01-A's greys and blue, as the shared roles (one palette, owner
+       2026-11-18). */
+  --sum-label: var(--color-text-secondary); /* "Selected plan", "Payment method" */
+  --sum-note: var(--color-text-muted); /* "/month" */
+  --sum-price: var(--color-text-link); /* "HKD 280", "Add card" */
+  /* a single module's name. NOT the bundle: SuperMinty is --pick-ink, and the two states
+     are deliberately different colours in the design. */
+  --sum-plan: var(--color-module-payment-ink);
 }
 
 .module-grid {
@@ -2683,7 +2689,11 @@ textarea {
   height: 360px;
   border-radius: 20px;
   overflow: hidden;
-  background: linear-gradient(150deg, color-mix(in oklab, var(--art-accent) 12%, white), white 65%);
+  background: linear-gradient(
+    150deg,
+    color-mix(in oklab, var(--art-accent) 12%, var(--color-surface-card)),
+    var(--color-surface-card) 65%
+  );
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2721,7 +2731,7 @@ textarea {
   letter-spacing: -0.015em;
   /* Two even lines rather than "Payment" over a stranded "Request". */
   text-wrap: balance;
-  color: #16202e;
+  color: var(--color-text-primary);
   text-align: center;
 }
 /* Pinned to the bottom of the card rather than flowing after the title: the two
@@ -2758,7 +2768,7 @@ textarea {
   justify-content: center;
   gap: 10px;
   text-align: center;
-  background: rgba(255, 255, 255, 0.96);
+  background: color-mix(in srgb, var(--color-surface-card) 96%, transparent);
   opacity: 0;
   transform: translateY(8px);
   transition:
@@ -2775,7 +2785,7 @@ textarea {
   font-weight: 700;
   font-size: 20px;
   letter-spacing: -0.01em;
-  color: #16202e;
+  color: var(--color-text-primary);
 }
 .mp-desc {
   font-size: 15px;
@@ -2801,11 +2811,11 @@ textarea {
   width: 40px;
   height: 40px;
   border-radius: 10px;
-  border: 2px solid var(--line-strong);
+  border: 2px solid var(--color-border-input);
   background: var(--bg);
   display: grid;
   place-items: center;
-  color: white;
+  color: var(--color-action-on-primary);
   transition:
     background 0.25s ease,
     border-color 0.25s ease,
@@ -2816,7 +2826,7 @@ textarea {
   border-color: var(--muted);
 }
 .module-pick.selected .mp-circle {
-  background: var(--pick-line);
+  background: var(--color-action-tick);
   border-color: transparent;
   box-shadow: 0 6px 14px rgb(60 188 195 / 0.35);
   transform: scale(1.05);
@@ -3022,7 +3032,7 @@ textarea {
 .sub-pay-name {
   font-size: 14px;
   font-weight: 700;
-  color: #16202e;
+  color: var(--color-text-primary);
 }
 /* A button, not an anchor — it opens a dialog rather than going anywhere. Styled
      as a link because that is what the design draws and what the payer expects to
@@ -3158,10 +3168,8 @@ textarea {
      every other step still wants the floor.
 
      .page-head.module-head is two classes to .page-head's one, so it wins regardless of
-     which rule comes later in the file. Colours are NOT set: #1B1D1C and #8A8D8B were
-     sampled off the live frame and are already var(--ink) and var(--muted). (An SVG
-     export of this head says #737A87 for the sub; the live frame disagrees, and the
-     frame is what the design actually renders.)
+     which rule comes later in the file. Colours are NOT set: the heading and sub are
+     already var(--ink) and var(--muted), the shared text roles.
 
      The sub drops 16px -> 15px, which is a deliberate step below the app's floor for
      one line of supporting copy. If that is not wanted, delete the p rule and keep the
@@ -3299,7 +3307,7 @@ textarea {
   text-align: left;
   font-size: 15px;
   line-height: normal;
-  color: #16202e;
+  color: var(--color-text-primary);
 }
 .allset-lede {
   margin: 0;
@@ -3569,11 +3577,8 @@ textarea {
   padding: 20px;
   overflow-y: auto;
   overscroll-behavior: contain;
-  /* The design's scrim: #16202E at 12% behind a 6px blur. Far lighter than the
-       near-black wash it replaces, and the difference in job is the point — at 12% the
-       darkening barely separates anything, so it is the BLUR doing the work. Dropping the
-       blur here does not degrade to "slightly less separation", it degrades to none. */
-  background: rgba(22, 32, 46, 0.12);
+  /* The shared scrim (Part 13: #111313 at 48%, --color-overlay-scrim) behind a 6px blur. */
+  background: var(--color-overlay-scrim);
   -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
 }
@@ -3599,7 +3604,7 @@ textarea {
        through it is three dialogs. */
   border: 0;
   border-radius: 16px;
-  box-shadow: 0 16px 44px rgba(22, 32, 46, 0.16);
+  box-shadow: var(--shadow-modal);
   padding: 30px;
   max-width: 481px;
   width: 100%;
@@ -3652,7 +3657,7 @@ textarea {
   line-height: normal;
   font-weight: 700;
   letter-spacing: -0.01em;
-  color: #16202e;
+  color: var(--color-text-primary);
 }
 /* The picker titles itself smaller than the form — 16px semibold against 20px bold.
      Kept as two sizes rather than normalised, because the design sizes each heading to what
@@ -3665,7 +3670,7 @@ textarea {
   margin: 0;
   font-size: 13.5px;
   line-height: normal;
-  color: #6b7a80;
+  color: var(--color-text-secondary);
   max-width: 434px;
 }
 .billing-close {
@@ -3755,7 +3760,7 @@ textarea {
   width: 20px;
   height: 20px;
   margin: 0;
-  border: 2px solid #d7dee2;
+  border: 2px solid var(--color-border-input);
   border-radius: 50%;
   background: var(--bg);
   cursor: pointer;
@@ -3764,10 +3769,10 @@ textarea {
     border-width 0.15s;
 }
 .billing-pm input:checked {
-  border: 6px solid var(--color-action-primary);
+  border: 6px solid var(--color-action-tick);
 }
 .billing-pm input:focus-visible {
-  outline: 2px solid var(--pick-line);
+  outline: 2px solid var(--color-border-focus);
   outline-offset: 2px;
 }
 .billing-pm input:disabled {
@@ -3784,7 +3789,7 @@ textarea {
   justify-content: center;
   width: 56px;
   height: 36px;
-  border: 1px solid #eff1f3;
+  border: 1px solid var(--color-border-subtle);
   border-radius: 7px;
   background: var(--bg);
 }
@@ -3798,19 +3803,19 @@ textarea {
   font-size: 14px;
   font-weight: 700;
   letter-spacing: -0.005em;
-  color: #16202e;
+  color: var(--color-text-primary);
 }
 .billing-pm-meta {
   display: flex;
   align-items: baseline;
   gap: 11px;
   font-size: 12px;
-  color: #16202e;
+  color: var(--color-text-primary);
 }
 /* "Expire on" is the caption and the date is the fact — the design greys the first and
      leaves the second in ink, which is why they are two elements rather than one string. */
 .billing-pm-metalabel {
-  color: #a0a8b2;
+  color: var(--color-text-muted);
 }
 .billing-pm-company {
   font-size: 12.5px;
@@ -3839,14 +3844,12 @@ textarea {
   white-space: nowrap;
 }
 .billing-pm-flag.is-soon {
-  color: #9e690d;
-  background: #fce6bd;
-  border-color: #f2d59b;
+  color: var(--color-status-warning-ink);
+  background: var(--color-status-warning-bg);
 }
 .billing-pm-flag.is-expired {
-  color: #b4231f;
-  background: #fff1f1;
-  border-color: #ffcccc;
+  color: var(--color-status-danger-ink);
+  background: var(--color-status-danger-bg);
 }
 
 /* Centred under the list, in the step's teal. A button rather than an anchor — it opens
@@ -3909,7 +3912,7 @@ textarea {
   margin-bottom: 6px;
   font-size: 13px;
   font-weight: 600;
-  color: #16202e;
+  color: var(--color-text-primary);
 }
 /* Matched to the Stripe fields below them (STRIPE_APPEARANCE in BillingSheet.jsx), so
      the three inputs the payer meets in one column are one column of inputs. Change either
@@ -3919,23 +3922,23 @@ textarea {
   width: 100%;
   height: 44px;
   padding: 12px 14px;
-  border: 1px solid #d7dee2;
+  border: 1px solid var(--color-border-input);
   border-radius: 12px;
   background: var(--bg);
   font: inherit;
   font-size: 14px;
-  color: #16202e;
+  color: var(--color-text-primary);
   transition:
     border-color 0.15s,
     box-shadow 0.15s;
 }
 .billing-input::placeholder {
-  color: #9aa6ac;
+  color: var(--color-text-muted);
 }
 .billing-input:focus {
   outline: none;
-  border-color: var(--pick-line);
-  box-shadow: 0 0 0 3px rgb(60 188 195 / 0.18);
+  border-color: var(--color-border-focus);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-border-focus) 18%, transparent);
 }
 .billing-input:disabled {
   background: var(--surface);
@@ -3944,29 +3947,29 @@ textarea {
 /* The invalid state colours the border rather than adding an icon: the message below it
      says what is wrong, and the two together are the signal — colour alone would not be. */
 .billing-input.is-invalid {
-  border-color: #b4231f;
+  border-color: var(--color-action-danger);
 }
 .billing-input.is-invalid:focus {
-  box-shadow: 0 0 0 3px rgba(180, 35, 31, 0.15);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-action-danger) 15%, transparent);
 }
 /* The red asterisk on a mandatory billing field - mirrors minty-web's SHEET_REQUIRED
    (components/ui/sheetClasses.ts). The same dialog in two apps must be the same dialog. */
 .billing-label .req {
-  color: #b4231f;
+  color: var(--color-status-danger-ink);
   margin-left: 0;
 }
 .billing-fielderror {
   margin: 6px 0 0;
   font-size: 12.5px;
   line-height: 1.4;
-  color: #b4231f;
+  color: var(--color-status-danger-ink);
 }
 
 /* The bordered block around the Stripe elements. It is a boundary as much as a frame:
      everything inside it is rendered by Stripe, in Stripe's iframe, and is the one part of
      this form whose contents never reach this app. */
 .billing-stripe {
-  border: 1px solid #d7dee2;
+  border: 1px solid var(--color-border-default);
   border-radius: 12px;
   padding: 16px;
 }
@@ -4016,7 +4019,7 @@ textarea {
   font-weight: 700;
   line-height: 1.2;
   letter-spacing: -0.02em;
-  color: #16202e;
+  color: var(--color-text-primary);
 }
 .billing-done-title span {
   color: var(--pick-ink);
@@ -4037,7 +4040,7 @@ textarea {
 /* The card that was saved, in its own colour so the sentence can be scanned for the
      one fact it carries. */
 .billing-done-card {
-  color: #ea9713;
+  color: var(--color-status-warning-ink);
 }
 .billing-done-actions {
   display: flex;
@@ -4065,12 +4068,12 @@ textarea {
   font-size: 13.5px;
 }
 .billing-mandate {
-  color: #6b7a80;
+  color: var(--color-text-secondary);
 }
 .billing-error {
-  color: #b4231f;
-  background: #fff1f1;
-  border: 1px solid #ffcccc;
+  color: var(--color-status-danger-ink);
+  background: var(--color-status-danger-bg);
+  border: 1px solid var(--color-status-danger-bg);
   border-radius: var(--radius-sm);
   padding: 10px 12px;
 }
@@ -4088,8 +4091,8 @@ textarea {
   justify-content: center;
 }
 .billing-actions .btn-ghost {
-  border-color: #d7dee2;
-  color: #16202e;
+  border-color: var(--color-border-default);
+  color: var(--color-text-primary);
 }
 .billing-cancel {
   flex: 0 0 150px;
@@ -4210,7 +4213,7 @@ textarea {
   border-color: color-mix(in oklab, var(--accent) 45%, var(--line));
 }
 .invite-resend:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--color-border-focus);
   outline-offset: 2px;
 }
 .invite-resend:disabled {
@@ -4348,13 +4351,13 @@ textarea {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  border: 2px solid var(--line-strong);
+  border: 2px solid var(--color-border-input);
   background: var(--bg);
 }
 .acs-choice.is-on .acs-radio {
-  border-color: var(--accent);
+  border-color: var(--color-action-tick);
   box-shadow: inset 0 0 0 4px var(--bg);
-  background: var(--accent);
+  background: var(--color-action-tick);
 }
 /* 4.2 - business type (Figma 348:1135): a tinted picture card per type, "None of these" below */
 /* 4.1 and 4.2 are wider than the page's 664px column (720px and 904px in the design): they step
@@ -4389,9 +4392,9 @@ textarea {
   padding-top: 8px;
 }
 .acs-biz {
-  --biz-bg: #ffffff;
-  --biz-line: #d5dada;
-  --biz-ink: #6b7373;
+  --biz-bg: var(--color-surface-card);
+  --biz-line: var(--color-border-default);
+  --biz-ink: var(--color-text-muted);
   --biz-art: 178px;
   position: relative;
   display: flex;
@@ -4447,7 +4450,7 @@ textarea {
     0 6px 18px rgba(0, 0, 0, 0.1);
 }
 .acs-biz:focus-visible {
-  outline: 2px solid var(--accent-ink);
+  outline: 2px solid var(--color-border-focus);
   outline-offset: 3px;
 }
 .acs-biz-art {
@@ -4485,7 +4488,7 @@ textarea {
   width: 40px;
   height: 40px;
   border-radius: 20px;
-  background: #ffffff;
+  background: var(--color-surface-card);
 }
 .acs-biz-icon img {
   display: block;
@@ -4497,13 +4500,13 @@ textarea {
   min-width: 0;
   font-size: 18px;
   font-weight: 700;
-  color: #1f2424;
+  color: var(--color-text-primary);
   overflow-wrap: anywhere;
 }
 .acs-biz-body {
   font-size: 13.5px;
   line-height: 1.5;
-  color: #4f5757;
+  color: var(--color-text-secondary);
   overflow-wrap: anywhere;
 }
 .acs-biz-go {
@@ -4516,13 +4519,13 @@ textarea {
   margin-top: auto;
   align-self: flex-end;
   border-radius: 20px;
-  background: #ffffff;
+  background: var(--color-surface-card);
   color: var(--biz-ink);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
 }
 .acs-biz.is-on .acs-biz-go {
   background: var(--color-action-primary);
-  color: #ffffff;
+  color: var(--color-action-on-primary);
 }
 .acs-biz.is-none {
   align-items: center;
@@ -4541,12 +4544,12 @@ textarea {
 }
 .acs-biz.is-none .acs-biz-body {
   line-height: normal;
-  color: #6b7373;
+  color: var(--color-text-muted);
 }
 .acs-biz.is-none .acs-biz-go {
   margin-top: 0;
   align-self: center;
-  background: #f2f4f4;
+  background: var(--color-surface-sunk);
 }
 .acs-biz.is-none.is-on .acs-biz-go {
   background: var(--color-action-primary);
@@ -4586,8 +4589,8 @@ textarea {
   gap: 16px;
   min-width: 0;
   padding: 14px 16px;
-  background: #ffffff;
-  border: 1px solid #e6eaea;
+  background: var(--color-surface-card);
+  border: 1px solid var(--color-border-subtle);
   border-radius: 16px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
@@ -4632,12 +4635,12 @@ textarea {
 .acs-coa-name {
   font-size: 16.5px;
   font-weight: 700;
-  color: #1f2424;
+  color: var(--color-text-primary);
   overflow-wrap: anywhere;
 }
 .acs-coa-meta {
   font-size: 13px;
-  color: #7a8282;
+  color: var(--color-text-muted);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -4657,16 +4660,16 @@ textarea {
   width: 34px;
   height: 34px;
   border-radius: 17px;
-  background: #ffffff;
-  border: 1.5px solid #c9cfcf;
-  color: #ffffff;
+  background: var(--color-surface-card);
+  border: 1.5px solid var(--color-border-input);
+  color: var(--color-action-on-primary);
 }
 .acs-coa-row.is-on .acs-coa-check {
-  background: var(--color-action-primary);
-  border-color: var(--color-action-primary);
+  background: var(--color-action-tick);
+  border-color: var(--color-action-tick);
 }
 .acs-coa-input:focus-visible + .acs-coa-check {
-  outline: 2px solid var(--accent-ink);
+  outline: 2px solid var(--color-border-focus);
   outline-offset: 2px;
 }
 .acs-coa-input:disabled + .acs-coa-check {
@@ -4692,10 +4695,10 @@ textarea {
   cursor: pointer;
 }
 .acs-menu-btn:hover {
-  background: #f2f4f4;
+  background: var(--color-state-hover);
 }
 .acs-menu-btn:focus-visible {
-  outline: 2px solid var(--accent-ink);
+  outline: 2px solid var(--color-border-focus);
   outline-offset: 0;
 }
 .acs-menu-btn img {
@@ -4710,7 +4713,7 @@ textarea {
   z-index: 5;
   min-width: 140px;
   padding: 6px;
-  background: #ffffff;
+  background: var(--color-surface-raised);
   border: 1px solid var(--line);
   border-radius: 12px;
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.12);
@@ -4785,12 +4788,12 @@ textarea {
   gap: 10px;
   min-height: 44px;
   padding: 0 16px;
-  background: #ffffff;
-  border: 1px solid #c9d0d0;
+  background: var(--color-surface-card);
+  border: 1px solid var(--color-border-input);
   border-radius: 12px;
 }
 .acs-xero-search:focus-within {
-  border-color: var(--accent-ink);
+  border-color: var(--color-border-focus);
   box-shadow: 0 0 0 3px rgb(25 103 107 / 0.15);
 }
 .acs-xero-search img {
@@ -4808,14 +4811,14 @@ textarea {
   outline: none;
 }
 .acs-xero-search input::placeholder {
-  color: #8a9393;
+  color: var(--color-text-muted);
 }
 .acs-xero-list {
   list-style: none;
   margin: 0;
   padding: 4px 6px;
-  background: #ffffff;
-  border: 1px solid #e6eaea;
+  background: var(--color-surface-card);
+  border: 1px solid var(--color-border-subtle);
   border-radius: 16px;
 }
 .acs-xero-list:focus-visible,
@@ -4824,7 +4827,7 @@ textarea {
   outline-offset: 2px;
 }
 .acs-xero-list > li + li {
-  border-top: 1px solid #eef1f1;
+  border-top: 1px solid var(--color-border-subtle);
 }
 .acs-xero-row {
   position: relative;
@@ -4844,16 +4847,16 @@ textarea {
   width: 22px;
   height: 22px;
   border-radius: 6px;
-  background: #ffffff;
-  border: 1.5px solid #bfc6c6;
-  color: #ffffff;
+  background: var(--color-surface-card);
+  border: 1.5px solid var(--color-border-input);
+  color: var(--color-action-on-primary);
 }
 .acs-xero-box.is-on {
-  background: var(--color-action-primary);
-  border-color: var(--color-action-primary);
+  background: var(--color-action-tick);
+  border-color: var(--color-action-tick);
 }
 .acs-coa-input:focus-visible + .acs-xero-box {
-  outline: 2px solid var(--accent-ink);
+  outline: 2px solid var(--color-border-focus);
   outline-offset: 2px;
 }
 .acs-xero-code {
@@ -4861,24 +4864,24 @@ textarea {
   width: 40px;
   font-size: 14.5px;
   font-weight: 500;
-  color: #7a8282;
+  color: var(--color-text-muted);
 }
 .acs-xero-name {
   flex: 1 1 0;
   min-width: 0;
   font-size: 15px;
   font-weight: 600;
-  color: #1f2424;
+  color: var(--color-text-primary);
   overflow-wrap: anywhere;
 }
 .acs-xero-type {
   flex-shrink: 0;
   padding: 4px 10px;
   border-radius: 6px;
-  background: #eef1f1;
+  background: var(--color-status-neutral-bg);
   font-size: 12px; /* the design's 11.5px is under the 12px floor */
   font-weight: 600;
-  color: #5c6565;
+  color: var(--color-status-neutral-ink);
   text-transform: uppercase;
 }
 .acs-xero-none,
@@ -4913,16 +4916,16 @@ textarea {
   gap: 12px;
   margin-top: 14px;
   padding: 14px 16px;
-  background: #eef4ff;
-  border-left: 4px solid #3b82f6;
+  background: var(--color-status-info-bg);
+  border-left: 4px solid var(--color-status-info-ink);
   border-radius: 10px;
   font-size: 13.5px;
   line-height: 1.55;
-  color: #2347a3;
+  color: var(--color-status-info-ink);
 }
 .acs-notice svg {
   flex-shrink: 0;
-  color: #3b82f6;
+  color: var(--color-status-info-ink);
   margin-top: 2px;
 }
 .acs-notice p {
@@ -4930,7 +4933,7 @@ textarea {
 }
 .acs-notice .acs-notice-title {
   font-weight: 700;
-  color: #1e3a8a;
+  color: var(--color-status-info-ink);
 }
 /* phones: the type pill sits under the name rather than squeezing it; one line from 480px */
 .acs-xero-row {
@@ -4959,12 +4962,12 @@ textarea {
 .acs-exp {
   position: relative;
   min-width: 0;
-  background: #fbfbfa;
-  border: 1px solid #ececea;
+  background: var(--color-surface-sunk);
+  border: 1px solid var(--color-border-subtle);
   border-radius: 16px;
 }
 .acs-exp.is-on {
-  background: #ffffff;
+  background: var(--color-surface-card);
   border-color: var(--color-border-selected);
   box-shadow: inset 0 0 0 0.5px var(--color-border-selected);
 }
@@ -5039,12 +5042,12 @@ textarea {
 .acs-exp-name {
   font-size: 15px;
   font-weight: 700;
-  color: #1f2424;
+  color: var(--color-text-primary);
   overflow-wrap: anywhere;
 }
 .acs-exp-body {
   font-size: 12.5px;
-  color: #6b7373;
+  color: var(--color-text-muted);
   overflow-wrap: anywhere;
   /* two lines, as the design's short descriptions; the whole text is the title (hover) and is read
      out in full */
@@ -5057,7 +5060,7 @@ textarea {
 .acs-exp-code {
   font-size: 12px;
   font-weight: 600;
-  color: #8a9393;
+  color: var(--color-text-muted);
 }
 /* the card's menu sits in its bottom corner, clear of the tick */
 .acs-exp .acs-menu {
@@ -5085,7 +5088,7 @@ textarea {
 .acs-add.acs-exp-add .acs-exp-add-hint {
   font-size: 12.5px;
   font-weight: 400;
-  color: #7a8282;
+  color: var(--color-text-muted);
 }
 
 /* 4.5 / X4 - the five accounts daily closing needs (Figma 348:1384; 4.5a 348:1674) */
@@ -5100,8 +5103,8 @@ textarea {
   border-radius: 12px;
 }
 .acs-ready.is-warn {
-  background: #fcf2dc;
-  border-color: #e8a13a;
+  background: var(--color-status-warning-bg);
+  border-color: var(--color-status-warning-bg);
 }
 .acs-ready-badge {
   display: flex;
@@ -5114,10 +5117,10 @@ textarea {
   background: var(--color-action-primary);
   font-size: 16px;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--color-text-inverse);
 }
 .acs-ready.is-warn .acs-ready-badge {
-  background: #c47f12;
+  background: var(--color-status-warning-ink);
 }
 .acs-ready-text {
   flex: 1 1 0;
@@ -5126,7 +5129,7 @@ textarea {
 .acs-ready-text p {
   margin: 2px 0 0;
   font-size: 13.5px;
-  color: #4a4d4b;
+  color: var(--color-text-secondary);
   overflow-wrap: anywhere;
 }
 .acs-ready-text .acs-ready-title {
@@ -5136,7 +5139,7 @@ textarea {
   color: var(--color-text-link);
 }
 .acs-ready.is-warn .acs-ready-title {
-  color: #7e4e05;
+  color: var(--color-status-warning-ink);
 }
 .acs-roles {
   list-style: none;
@@ -5155,15 +5158,13 @@ textarea {
   gap: 16px;
   min-width: 0;
   padding: 16px 18px;
-  background: #ffffff;
-  border: 1px solid #e6eaea;
+  background: var(--color-surface-card);
+  border: 1px solid var(--color-border-subtle);
   border-radius: 16px;
 }
 .acs-role.is-missing .acs-role-card {
-  background: #fffdf7;
-  border-color: #e8a13a;
-  /* the design's 1.5px edge, without moving anything */
-  box-shadow: inset 0 0 0 0.5px #e8a13a;
+  background: var(--color-status-warning-bg);
+  border-color: var(--color-status-warning-bg);
 }
 .acs-role-icon {
   display: flex;
@@ -5204,19 +5205,19 @@ textarea {
   margin: 0;
   font-size: 16px;
   font-weight: 700;
-  color: #1f2424;
+  color: var(--color-text-primary);
 }
 .acs-role-body {
   font-size: 13px;
-  color: #6b7373;
+  color: var(--color-text-muted);
 }
 .acs-role-text .acs-role-account {
   font-size: 12.5px;
   font-weight: 600;
-  color: #8a9393;
+  color: var(--color-text-muted);
 }
 .acs-role.is-missing .acs-role-account {
-  color: #9a6510;
+  color: var(--color-status-warning-ink);
 }
 .acs-role-side {
   display: flex;
@@ -5247,14 +5248,14 @@ textarea {
   background: var(--color-status-success-ink);
   font-size: 12px;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--color-text-inverse);
 }
 .acs-role.is-missing .acs-role-status {
-  background: #fdf0dc;
-  color: #7e4e05;
+  background: var(--color-status-warning-bg);
+  color: var(--color-status-warning-ink);
 }
 .acs-role.is-missing .acs-role-dot {
-  background: #c47f12;
+  background: var(--color-status-warning-ink);
 }
 /* Change and Set up: the design's sizes, with a 44px tap area around them */
 .acs-role-change,
@@ -5281,14 +5282,14 @@ textarea {
 .acs-role-setup {
   padding: 8px 16px;
   font-size: 13.5px;
-  color: var(--color-text-link);
-  background: #ffffff;
-  border: 1.5px solid var(--color-text-link);
+  color: var(--color-action-secondary-text);
+  background: var(--color-surface-card);
+  border: 1.5px solid var(--color-action-secondary-border);
   border-radius: 12px;
 }
 .acs-role-change:focus-visible,
 .acs-role-setup:focus-visible {
-  outline: 2px solid var(--accent-ink);
+  outline: 2px solid var(--color-border-focus);
   outline-offset: 3px;
 }
 .acs-slot-pop {
@@ -5298,7 +5299,7 @@ textarea {
   z-index: 10;
   width: min(360px, calc(100% - 28px));
   padding: 6px 0;
-  background: #fbfbfa;
+  background: var(--color-surface-sunk);
   border: 1px solid var(--line);
   border-radius: 12px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
@@ -5406,8 +5407,8 @@ textarea {
   text-align: center;
   font: inherit;
   color: inherit;
-  background: #ffffff;
-  border: 1px solid #e3e7e7;
+  background: var(--color-surface-card);
+  border: 1px solid var(--color-border-subtle);
   border-radius: 20px;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05);
   cursor: pointer;
@@ -5425,7 +5426,7 @@ textarea {
   box-shadow: 0 10px 28px rgb(29 138 144 / 0.14);
 }
 .acs-mode-card:focus-visible {
-  outline: 2px solid var(--accent-ink);
+  outline: 2px solid var(--color-border-focus);
   outline-offset: 3px;
 }
 .acs-mode-art {
@@ -5470,13 +5471,13 @@ textarea {
 .acs-mode-title {
   font-size: 20px;
   font-weight: 700;
-  color: #1f2424;
+  color: var(--color-text-primary);
   overflow-wrap: anywhere;
 }
 .acs-mode-body {
   font-size: 14.5px;
   line-height: 1.5;
-  color: #6b7373;
+  color: var(--color-text-muted);
   overflow-wrap: anywhere;
 }
 .acs-mode-radio {
@@ -5548,7 +5549,7 @@ textarea {
 .acs-group-title {
   font-size: 15px;
   font-weight: 700;
-  color: #4f5757;
+  color: var(--color-text-secondary);
   margin: 0 0 12px;
 }
 .acs-group-title span {
@@ -5643,8 +5644,8 @@ textarea {
   font-size: 13px;
 }
 .acs-banner.is-warn {
-  background: var(--warn-soft);
-  border-color: var(--warn);
+  background: var(--color-status-warning-bg);
+  border-color: var(--color-status-warning-bg);
 }
 
 @media (min-width: 640px) {
@@ -5690,14 +5691,14 @@ textarea {
   cursor: pointer;
 }
 .acs-sa.is-on {
-  background: #ffffff;
+  background: var(--color-surface-card);
   box-shadow: var(--shadow-sm);
 }
 .acs-sa:hover {
   border-color: var(--line-strong);
 }
 .acs-sa:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--color-border-focus);
   outline-offset: 2px;
 }
 .acs-sa-badge {
@@ -5741,7 +5742,7 @@ textarea {
 }
 .acs-sa-body {
   font-size: 13px;
-  color: #5d6260;
+  color: var(--color-text-secondary);
   overflow-wrap: anywhere;
 }
 .acs-sa-pill {
@@ -5766,12 +5767,12 @@ textarea {
   width: 28px;
   height: 28px;
   border-radius: 14px;
-  border: 1.5px solid var(--line-strong);
-  color: #ffffff;
+  border: 1.5px solid var(--color-border-input);
+  color: var(--color-action-on-primary);
 }
 .acs-sa.is-on .acs-sa-check {
-  border-color: var(--accent-ink);
-  background: var(--accent-ink);
+  border-color: var(--color-action-tick);
+  background: var(--color-action-tick);
 }
 /* The plain info note under a list (row 1 and row 2's helper, 2026-11-17: no cat) */
 .acs-sa-note {
@@ -5804,7 +5805,7 @@ textarea {
   flex-direction: column;
   gap: 14px;
   padding: 16px;
-  background: #ffffff;
+  background: var(--color-surface-card);
   border: 1px solid var(--line);
   border-radius: 16px;
 }
@@ -5897,7 +5898,7 @@ textarea {
 }
 .pc-chip-grab:focus-visible,
 .pc-chip-x:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--color-border-focus);
   outline-offset: 1px;
 }
 .pc-chip-x {

@@ -39,7 +39,7 @@ export const MODULES: ModuleCard[] = [
     title: "Petty Cash",
     desc: "Track and reimburse small office expenses with receipt capture and instant approvals.",
     img: "/pettycash-icon.png",
-    accent: "#f5b945",
+    accent: "var(--color-module-pettycash)",
     price: "280 HKD per Month",
   },
   {
@@ -47,7 +47,7 @@ export const MODULES: ModuleCard[] = [
     title: "Payment Request",
     desc: "Capture vendor payments, schedule payments, and reconcile with your accounting ledger.",
     img: "/payment-icon.png",
-    accent: "#3aa6f5",
+    accent: "var(--color-module-payment)",
     price: "280 HKD per Month",
   },
 ];

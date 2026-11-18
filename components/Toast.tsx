@@ -111,17 +111,17 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {visible && toast ? (
         <div
           key={toast.id}
-          className="pointer-events-auto flex items-start gap-3 rounded border border-[#e5e7eb] bg-white p-3 text-sm text-[#171717] shadow"
+          className="pointer-events-auto flex items-start gap-3 rounded border border-border-subtle bg-surface-raised p-3 text-sm text-text-primary shadow"
           role={toast.tone === "error" ? "alert" : "status"}
           data-toast-type={toast.tone}
         >
           <div className="min-w-0 flex-1">
             <p className="font-semibold">{LABEL[toast.tone]}</p>
-            <p className="break-words text-[#6b7280]">{toast.message}</p>
+            <p className="break-words text-text-muted">{toast.message}</p>
           </div>
           <button
             type="button"
-            className="cursor-pointer text-[#6b7280] hover:text-[#171717]"
+            className="cursor-pointer text-text-muted hover:text-text-primary"
             onClick={hide}
             aria-label="Dismiss"
           >

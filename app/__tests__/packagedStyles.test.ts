@@ -38,8 +38,14 @@ describe("@minty/shared's tokens reach the stylesheet", () => {
     expect(compiled).toMatch(/--font-brand:\s*var\(--font-jakarta\)/);
   });
 
-  it("still emits this app's brand colours", () => {
-    expect(compiled).toMatch(/--color-secondary:\s*#54d3da/);
+  it("emits the shared colour roles, and no app-local palette beside them", () => {
+    // One palette for every app: the Minty tokens (owner, 2026-11-18), from tokens.css.
+    expect(compiled).toMatch(/--color-action-primary:\s*var\(--minty-main-action\)/);
+    expect(compiled).toMatch(/--minty-main-action:\s*#4fc7c7/);
+    expect(compiled).toMatch(/--color-status-danger-ink:\s*var\(--minty-main-danger-ink\)/);
+    expect(compiled).toMatch(/--color-overlay-scrim:/);
+    // The old grey `--color-primary` and the brand teal `--color-secondary` (#54d3da) are gone.
+    expect(compiled).not.toMatch(/--color-(primary|secondary):/);
   });
 
   it("loads no icon font - nothing draws a glyph since the side menu became the shared one", () => {

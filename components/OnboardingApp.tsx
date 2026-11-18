@@ -1751,12 +1751,12 @@ export default function OnboardingApp() {
     return (
       <main className="flex min-h-dvh items-center justify-center px-4">
         <div className="flex w-full max-w-sm flex-col items-center gap-4 text-center">
-          <p role="alert" className="text-sm text-[#2B2B2B]">
+          <p role="alert" className="text-sm text-text-primary">
             {launchRefused}
           </p>
           <a
             href={`${FLASK_BASE}/entity`}
-            className="inline-flex min-h-11 items-center justify-center rounded-lg bg-action-primary px-5 text-sm font-semibold text-white no-underline hover:bg-action-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-action-primary-pressed active:bg-action-primary-pressed"
+            className="inline-flex min-h-11 items-center justify-center rounded-lg bg-action-primary px-5 text-sm font-semibold text-action-on-primary no-underline hover:bg-action-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus active:bg-action-primary-pressed"
           >
             Continue
           </a>
@@ -1869,7 +1869,7 @@ export default function OnboardingApp() {
               alignItems: "center",
               justifyContent: "center",
               padding: 20,
-              background: "rgba(15, 23, 27, 0.45)",
+              background: "var(--color-overlay-scrim)",
             }}
           >
             <div
@@ -1879,10 +1879,10 @@ export default function OnboardingApp() {
               aria-labelledby="xero-prompt-title"
               onClick={(e) => e.stopPropagation()}
               style={{
-                background: "#f1f3f4",
+                background: "var(--color-surface-raised)",
                 border: "1px solid var(--line)",
                 borderRadius: "var(--radius)",
-                boxShadow: "0 20px 48px rgba(0, 0, 0, 0.22)",
+                boxShadow: "var(--shadow-modal)",
                 padding: "26px 26px 22px",
                 maxWidth: 440,
                 width: "100%",

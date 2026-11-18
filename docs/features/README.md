@@ -16,14 +16,21 @@ sign-in, legal text and the Xero connection — and never verifies anything itse
 
 Link previews (owner, 2026-10-23): a link to any page of this app, pasted into a chat app, previews with one card - the Minty cat mark (`Minty/static/img/new_logo.png`, the flat drawing) centred on a white 1200x630 PNG. It is `app/opengraph-image.png` and `app/twitter-image.png` (alt text "Minty" in the `.alt.txt` beside each), which Next attaches to every route that sets no image of its own, plus `openGraph`/`twitter` in `app/layout.tsx`. The same file sits in minty-web, minty-petty-cash-web, minty-payment-request-web and minty-onboarding-web, and `app/__tests__/linkPreview.test.ts` pins its size and sha256 in each: a new card goes into all four, with the new hash. There is no `metadataBase`; on Vercel Next makes the image URL absolute from the deployment's own address. Previews never name a company or show report data.
 
-Colours (owner, 2026-11-18): the wizard's teals are `@minty/shared/tokens.css`'s, imported in
-`app/globals.css` - Minty Action `#3CBCC3` (hover `#35B2B9`, pressed `#2FA4AB`) for buttons, the
-active step and every checked box and radio; `--color-border-selected` for a selected card's
-border; `--color-text-link` for teal text (the price, "Selected", links); the brand tints for pale
-fills; the success pair for the green badges. `--accent`/`--accent-ink`/`--accent-soft` in
-`:root` are aliases of those tokens, and no component sets them inline any more. The one raw hex
-left is Stripe's field (`BillingSheet.tsx`): its iframe cannot read CSS variables. Not ours:
-`CardBrand.tsx`'s eftpos green and the confetti.
+Colours: @minty/shared Part 13 roles only (owner 2026-11-18). Every colour in `app/globals.css`
+is a `--color-*` role from `@minty/shared/tokens.css` (the local `--ink`, `--line`, `--muted`,
+`--danger`, `--accent`... in `:root` are aliases of roles, never a hex): Minty Action `#3CBCC3`
+(hover `#35B2B9`, pressed `#2FA4AB`) for buttons and every checked box and radio, white mark;
+`--color-border-input` for inputs and unticked boxes, `--color-border-focus` for focus;
+`--color-text-link` for teal text; the status pairs for pills, notices and errors
+(`--color-status-danger-ink` text, `--color-action-danger` lines); `--color-overlay-scrim` behind
+every dialog. Components use the role utilities (`text-text-primary`, `bg-surface-raised`...).
+`app/__tests__/noRawColours.test.ts` fails on a hex, `rgb()` or Tailwind palette class in the
+TS/TSX source, and on the retired values in `globals.css`. Allowed literals: Stripe's fields
+(`STRIPE_ROLE_COLOURS` in `BillingSheet.tsx`, each named by its role - its iframe cannot read CSS
+variables), `CardBrand.tsx`'s network colours and the confetti. Kept on purpose in `globals.css`:
+the decorative icon tints of Accounting Setup and Step 5 (`.acs-*-icon`, `.acs-sa-badge`,
+`.pc-method-badge`, the `--biz-*` business-type tints), and the orange dialog button and saved-card
+text (`#EA9713`, the owner picks its replacement).
 
 Email fields take English only (2026-10-01): the sign-in email, the business email (step 1),
 the invite (step 8) and the billing email spread `useEmailInput` (`lib/emailInput.ts`; the

@@ -72,7 +72,7 @@ describe("the header's menu", () => {
   it("opens the shared menu with the person, the entity list, subscriptions and Logout", async () => {
     const nav = await openMenu(false);
     expect(within(nav).getByRole("button", { name: "Ann Lee, My Profile" })).toBeInTheDocument();
-    expect(within(nav).getByRole("link", { name: /Select Entity/ })).toBeInTheDocument();
+    expect(within(nav).getByRole("link", { name: /Select Company/ })).toBeInTheDocument();
     expect(within(nav).getByRole("link", { name: /Manage subscriptions/ })).toBeInTheDocument();
     expect(within(nav).getByRole("button", { name: /Logout/ })).toBeInTheDocument();
   });
