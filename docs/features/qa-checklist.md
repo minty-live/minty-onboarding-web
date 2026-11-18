@@ -137,8 +137,7 @@ discrepancy_contact_id FROM pettycashv3.entity_pettycash_settings WHERE entity_i
       zero-decimal currency (a "." is refused while typing).
 - [ ] Step 3: each pending invite says "Expires in N days" / "Expires within a day" / "Expired"; Resend
       sends it again (toast), and pressing again at once says when it can go.
-- [ ] Step 8: "Default account code" lists only ticked codes plus "No default"; unticking the
-      chosen default drops it; a revisit shows the saved default.
+- [ ] Step 8: only the account-code ticks; there is no default account code (owner, 2026-11-18).
 - [ ] Step 9 with Petty Cash on and no Xero (or a mapping left short): the screen lists what is
       missing, each with "Go to <step>", and nothing went live; finishing the step and coming
       back to All Set completes it.

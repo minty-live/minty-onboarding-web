@@ -176,8 +176,6 @@ export type BillCodesResponse = {
   bill_codes?: CodeOption[];
   default_all?: boolean;
   selected_codes?: string[];
-  /** The code a new payment request preselects; "" when none is set. */
-  default_code?: string;
 };
 
 //  ── Writes ──────────────────────────────────────────────────────────
