@@ -100,17 +100,13 @@ so Save & Next only moves on; the kicker counts them (_Accounting setup · 3 of 
   `public/accounting/business-<type>.png` and `glyph-<type>.svg` from the design, the project's
   `Icon.Arrow` / `Icon.CheckSm` in each card's colour), "None of these" as the dashed full-width
   card; one column up to 1024px (the picture narrows on phones), two 440px columns in a 904px
-  column from there. The cash question below it keeps its own cards (the frame does not draw it).
-  It asks the business type (Restaurant & Food, Retail, Service, General, or _None of these_) and
-  the cash question, asked of every company (owner, 2026-11-10): _We pay expenses from sales
-  cash_, _We bank all sales_, _Not sure_ (stored as with cash sales). "We bank all sales" turns the
-  company's Cash method off (onboarding-api), daily closing then needs four accounts (no Cash
-  sales: step 6 hides the Cash Sales field), and step 7 (Contact Setup) asks for no Cash Sales
-  contact. On the Minty path the answer also adds that business type's sales accounts (the
-  accounting team's set; changing the answer swaps them).
-  The question's place (under the business type) and wording are the owner's choice (2026-11-10),
-  kept over the brief's "Do you pay expenses from the cash you take in from sales?" asked first. Both required: a refused
-  Save & Next names them, with the error summary for two.
+  column from there. It asks the business type (Restaurant & Food, Retail, Service, General, or
+  _None of these_), required. Until 2026-11-18 it also asked the cash question (_We pay expenses
+  from sales cash_, _We bank all sales_, _Not sure_); that is now the sales accounts screen's Sales -
+  Cash tick (below), with the same effects: unticked, the company's Cash method is off
+  (onboarding-api), daily closing needs four accounts (step 6 hides the Cash Sales field) and step 7
+  (Contact Setup) asks for no Cash Sales contact. On the Minty path the answer also adds that
+  business type's sales accounts (the accounting team's set; changing the answer swaps them).
 - **The sales accounts screen (owner, 2026-11-17; Figma 464:73 row 1).** After 4.2 on the Minty path:
   _Your sales accounts_, three tick cards - Sales - Cash, Sales - Electronic Payment, Sales - Delivery
   (`SalesAccountsScreen`) - each saying which part of the daily report it brings ("Shows on your
@@ -118,8 +114,13 @@ so Save & Next only moves on; the kicker counts them (_Accounting setup · 3 of 
   removed (the business type's set still brings the sales accounts). Cash is 4.2's cash answer
   (unticking it is "We bank all sales"); Electronic Payment and Delivery are
   `entities.sells_electronic` / `sells_delivery` (minty-db v0.11), NULL until chosen, when the
-  business type picks (`salesTicksOf` in `lib/wizardSteps.ts`): Restaurant & Food and no type take
-  both, a retail shop, a service or a general business Electronic only. None ticked is refused
+  business type picks (`salesTicksOf` in `lib/wizardSteps.ts`): Restaurant & Food takes both, a
+  retail shop, a service or a general business Electronic only, "None of these" neither - Sales -
+  Cash alone (owner, 2026-11-18); a company from before the questions keeps both.
+- **4.2 asks only the business type (owner, 2026-11-18).** The cash question ("How do you handle
+  cash from sales?") is gone: the sales accounts screen's Sales - Cash tick is it. 4.2's save sends
+  the company's cash answer as it stands (ticked for a new company), so the API picks the sheet's set
+  as before; unticking Sales - Cash on the next screen is "We bank all sales". None ticked is refused
   ("No sales account is ticked yet. Tick at least one to continue.", focus to the list).
   `POST /accounting/sales-accounts`; an unticked list's methods go. A company that has answered
   4.2 but not this screen resumes on it.

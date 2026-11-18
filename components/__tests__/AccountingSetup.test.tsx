@@ -183,18 +183,24 @@ describe("4.1 How would you like Minty to work?", () => {
   });
 });
 
+// 4.2 asks only the business type (owner, 2026-11-18): the cash question is the sales accounts
+// screen's Sales - Cash tick. The save sends the company's cash answer as it stands - ticked for a
+// new company - so the API's set (with or without Cash Sales) is chosen as before.
 describe("4.2 What best describes your business?", () => {
-  it("a refused save names both questions", () => {
+  it("asks only the business type, and a refused save says so", () => {
     renderStep({ mode: "minty", businessType: null, usesSalesCash: null });
+    expect(screen.queryByText("How do you handle cash from sales?")).toBeNull();
+    expect(screen.queryByRole("radio", { name: /We bank all sales/ })).toBeNull();
     saveAndNext();
-    expect(screen.getByText("2 details need a look before this can be saved.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Choose what best describes your business to continue."),
+    ).toBeInTheDocument();
     expect(calls).toEqual([]);
   });
 
-  it("'None of these' and 'Not sure' are saved as an empty type with cash sales", async () => {
+  it("'None of these' is saved as an empty type, with cash sales for a new company", async () => {
     renderStep({ mode: "minty", businessType: null, usesSalesCash: null });
     fireEvent.click(screen.getByRole("radio", { name: /None of these/ }));
-    fireEvent.click(screen.getByRole("radio", { name: /Not sure/ }));
     saveAndNext();
     // the sales accounts screen comes next (owner, 2026-11-17)
     await screen.findByText("Your sales accounts");
@@ -204,13 +210,19 @@ describe("4.2 What best describes your business?", () => {
     });
   });
 
-  it("'We bank all sales' is without cash sales", async () => {
-    renderStep({ mode: "minty", businessType: null, usesSalesCash: null });
-    fireEvent.click(screen.getByRole("radio", { name: /Retail shop/ }));
-    fireEvent.click(screen.getByRole("radio", { name: /We bank all sales/ }));
+  it("keeps the cash answer the sales accounts screen saved", async () => {
+    // back from 4.4 through the sales accounts screen to 4.2, Sales - Cash unticked earlier
+    renderStep({ ...RETAIL_CHOSEN, usesSalesCash: false });
+    await screen.findByText("What do you usually spend money on?");
+    fireEvent.click(screen.getByRole("button", { name: /Back/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Back/ }));
+    fireEvent.click(await screen.findByRole("radio", { name: /Service business/ }));
     saveAndNext();
-    await waitFor(() => expect(calls.length).toBeGreaterThan(0));
-    expect(calls[0].body).toMatchObject({ business_type: "retail", uses_sales_cash: false });
+    await waitFor(() => expect(calls.some((c) => c.url.endsWith("/business"))).toBe(true));
+    expect(calls.find((c) => c.url.endsWith("/business"))!.body).toMatchObject({
+      business_type: "service",
+      uses_sales_cash: false,
+    });
   });
 });
 
@@ -228,6 +240,13 @@ describe("the sales accounts screen", () => {
     expect(box(/Sales - Delivery/)).toHaveAttribute("aria-checked", "false");
     expect(screen.getByText("Shows on your daily report: Cash Sales")).toBeInTheDocument();
     expect(screen.getByText("Not on your daily report")).toBeInTheDocument();
+  });
+
+  it("'None of these' starts with only Sales - Cash (owner, 2026-11-18)", () => {
+    renderStep({ mode: "minty", businessType: null, usesSalesCash: true });
+    expect(box(/Sales - Cash/)).toHaveAttribute("aria-checked", "true");
+    expect(box(/Sales - Electronic Payment/)).toHaveAttribute("aria-checked", "false");
+    expect(box(/Sales - Delivery/)).toHaveAttribute("aria-checked", "false");
   });
 
   it("Restaurant & Food starts with all three; banking all sales leaves Cash unticked", () => {

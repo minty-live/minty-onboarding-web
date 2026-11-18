@@ -120,10 +120,13 @@ export function salesTicksOf(a: AccountingForm): {
 } {
   const electronic = a.sellsElectronic ?? null;
   const delivery = a.sellsDelivery ?? null;
+  // "None of these" (no type, the question answered): only Sales - Cash until chosen (owner,
+  // 2026-11-18). A company from before the questions (no answer either) keeps both lists.
+  const noneOfThese = a.businessType === null && a.usesSalesCash !== null;
   return {
     cash: a.usesSalesCash !== false,
-    electronic: electronic ?? true,
-    delivery: delivery ?? !isNonCash(a.businessType),
+    electronic: electronic ?? !noneOfThese,
+    delivery: delivery ?? (!isNonCash(a.businessType) && !noneOfThese),
     chosen: electronic !== null && delivery !== null,
   };
 }

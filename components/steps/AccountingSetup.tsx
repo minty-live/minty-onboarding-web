@@ -82,23 +82,6 @@ const BUSINESS_WORDS: Record<string, string> = {
   service: "Service business",
   general: "General business",
 };
-const CASH_CHOICES: { value: "with" | "without" | "unsure"; title: string; body: string }[] = [
-  {
-    value: "with",
-    title: "We pay expenses from sales cash",
-    body: "Cash taken at the till pays for small expenses.",
-  },
-  {
-    value: "without",
-    title: "We bank all sales",
-    body: "Every sale goes to the bank, and a separate petty cash float pays for expenses.",
-  },
-  {
-    value: "unsure",
-    title: "Not sure",
-    body: "Minty starts as if you pay from sales cash. You can change it later.",
-  },
-];
 const KIND_TYPES: Record<AccountKind, string[]> = {
   sales: ["sales", "revenue", "other_income"],
   expense: ["expense", "direct_costs", "overheads"], // the form starts on Expense
@@ -628,9 +611,6 @@ function BusinessScreen({
   const [business, setBusiness] = useState<BusinessType | "none" | "">(
     answered ? (initial.businessType ?? "none") : "",
   );
-  const [cash, setCash] = useState<"with" | "without" | "unsure" | "">(
-    answered ? (initial.usesSalesCash ? "with" : "without") : "",
-  );
   const [attempt, setAttempt] = useState(0);
   const [saving, setSaving] = useState(false);
 
@@ -643,9 +623,6 @@ function BusinessScreen({
             message: "Choose what best describes your business to continue.",
           },
         ]),
-    ...(cash
-      ? []
-      : [{ fieldId: "acs-cash", message: "Choose how you handle cash sales to continue." }]),
   ];
   const shown = attempt > 0 ? problems : [];
   const messageFor = (id: string) => shown.find((p) => p.fieldId === id)?.message;
@@ -657,9 +634,12 @@ function BusinessScreen({
       return;
     }
     setSaving(true);
+    // Owner, 2026-11-18: no cash question here - the sales accounts screen's Sales - Cash tick is
+    // it. The save keeps the company's answer as it stands (ticked for a new company), which picks
+    // the sheet's set (with or without Cash Sales) as before.
     const ok = await onSave(
       business === "none" ? null : (business as BusinessType),
-      cash !== "without",
+      initial.usesSalesCash !== false,
     );
     if (!ok) setSaving(false);
   };
@@ -755,45 +735,6 @@ function BusinessScreen({
         )}
       </fieldset>
 
-      <fieldset className={"acs-fieldset" + (messageFor("acs-cash") ? " field-error" : "")}>
-        <legend className="acs-legend">
-          How do you handle cash from sales?
-          <span className="req" aria-hidden>
-            *
-          </span>
-          <span className="sr-only"> (required)</span>
-        </legend>
-        <div
-          id="acs-cash"
-          tabIndex={-1}
-          className="acs-choice-grid is-cash"
-          role="radiogroup"
-          aria-label="How do you handle cash from sales?"
-          aria-required
-          aria-invalid={!!messageFor("acs-cash")}
-          aria-describedby={messageFor("acs-cash") ? "acs-cash-error" : undefined}
-        >
-          {CASH_CHOICES.map((c) => (
-            <button
-              key={c.value}
-              type="button"
-              role="radio"
-              aria-checked={cash === c.value}
-              className={"acs-choice is-compact" + (cash === c.value ? " is-on" : "")}
-              onClick={() => setCash(c.value)}
-            >
-              <span className="acs-choice-title">{c.title}</span>
-              <span className="acs-choice-body">{c.body}</span>
-              <span className="acs-radio" aria-hidden />
-            </button>
-          ))}
-        </div>
-        {messageFor("acs-cash") && (
-          <div className="field-required" id="acs-cash-error">
-            {messageFor("acs-cash")}
-          </div>
-        )}
-      </fieldset>
       <p className="acs-note">
         You can change your business type or any account anytime in Settings.
       </p>
