@@ -8,6 +8,11 @@
    This app loads no Plus Jakarta Sans, so --font-brand falls through to Inter; its own topbar
    `.brand` keeps its three hand-written values (see minty-web's components/ui/Wordmark.tsx). */
 @import "@minty/shared/theme.css";
+/* Part 13's tokens (owner, 2026-11-18: onboarding's teals are the shared ones). Every teal below
+   is a token from this sheet: Minty Action for fills, checked boxes and radios, the selected
+   border, link ink, brand tints, success for the green badges. It also redefines
+   rounded-sm/md/lg/xl to 4/8/12/16 px; this file's own :root --radius-sm/--radius still win. */
+@import "@minty/shared/tokens.css";
 @source "../node_modules/@minty/shared/src";
 
 /* Brand tokens shared with the payment-request module so Tailwind utilities
@@ -27,10 +32,10 @@
   --ink-2: #4a4d4b;
   --muted: #8a8d8b;
   --muted-2: #b2b5b3;
-  --accent: #36c3b4; /* teal */
-  --accent-hover: #2cb0a2;
-  --accent-soft: #e6f7f4;
-  --accent-ink: #0f7a6e;
+  --accent: var(--color-action-primary); /* Minty Action, the shared token */
+  --accent-hover: var(--color-action-primary-hover);
+  --accent-soft: var(--color-state-selected);
+  --accent-ink: var(--color-text-link);
   --warn: #e8a13a;
   --warn-soft: #fcf2dc;
   --danger: #d9534f;
@@ -183,7 +188,8 @@ textarea {
   position: relative;
   z-index: 3;
 }
-.step:hover:not(.locked):not(.not-clickable) {
+/* Not the selected tab: it keeps its Minty Action fill on hover (owner, 2026-11-18). */
+.step:hover:not(.locked):not(.not-clickable):not(.active) {
   background: #e6e9ed;
 }
 .step.locked {
@@ -214,28 +220,28 @@ textarea {
   display: none;
 }
 .step.done {
-  background: #d6f1ee;
-  color: #0f7a6e;
+  background: var(--minty-brand-100);
+  color: var(--color-text-link);
 }
 .step.done .num {
   background: transparent;
-  color: #0f7a6e;
+  color: var(--color-text-link);
 }
 .step.done .label {
-  color: #0f7a6e;
+  color: var(--color-text-link);
 }
 .step.done:hover:not(.locked):not(.not-clickable) {
-  background: #c4ebe6;
+  background: var(--minty-brand-200);
 }
 .step.active {
-  color: #054b44;
-  background: #46d8cc;
+  color: var(--minty-brand-950);
+  background: var(--color-action-primary);
   box-shadow:
     inset 0 1.5px 0 rgba(255, 255, 255, 0.55),
     inset 0 0 0 1.5px rgba(255, 255, 255, 0.35),
     inset 0 -3px 8px rgba(0, 0, 0, 0.06),
-    0 4px 14px rgba(70, 216, 204, 0.45),
-    0 0 0 2px rgba(70, 216, 204, 0.25);
+    0 4px 14px rgb(60 188 195 / 0.45),
+    0 0 0 2px rgb(60 188 195 / 0.25);
   z-index: 2;
   cursor: default;
 }
@@ -243,8 +249,8 @@ textarea {
 .step.active:hover,
 .step.active:focus,
 .step.active:active {
-  color: #054b44;
-  background: #46d8cc;
+  color: var(--minty-brand-950);
+  background: var(--color-action-primary);
   filter: none;
   transform: none;
 }
@@ -255,25 +261,25 @@ textarea {
       inset 0 1.5px 0 rgba(255, 255, 255, 0.55),
       inset 0 0 0 1.5px rgba(255, 255, 255, 0.35),
       inset 0 -3px 8px rgba(0, 0, 0, 0.06),
-      0 4px 14px rgba(70, 216, 204, 0.45),
-      0 0 0 2px rgba(70, 216, 204, 0.25);
+      0 4px 14px rgb(60 188 195 / 0.45),
+      0 0 0 2px rgb(60 188 195 / 0.25);
   }
   50% {
     box-shadow:
       inset 0 1.5px 0 rgba(255, 255, 255, 0.55),
       inset 0 0 0 1.5px rgba(255, 255, 255, 0.55),
       inset 0 -3px 8px rgba(0, 0, 0, 0.06),
-      0 6px 22px rgba(70, 216, 204, 0.55),
-      0 0 0 3px rgba(70, 216, 204, 0.35);
+      0 6px 22px rgb(60 188 195 / 0.55),
+      0 0 0 3px rgb(60 188 195 / 0.35);
   }
 }
 .step.active .num {
   background: transparent;
-  color: #054b44;
+  color: var(--minty-brand-950);
   box-shadow: none;
 }
 .step.active .label {
-  color: #054b44;
+  color: var(--minty-brand-950);
   font-weight: 600;
 }
 .step .label {
@@ -603,12 +609,13 @@ textarea {
   transform: scale(0.98);
 }
 .btn-primary {
-  background: linear-gradient(90deg, #00cbc6 0%, #00d5bf 100%);
+  background: var(--color-action-primary);
   color: white;
-  box-shadow: 0 4px 12px rgba(0, 203, 198, 0.28);
+  box-shadow: 0 4px 12px rgb(60 188 195 / 0.28);
 }
 .btn-primary:hover {
-  box-shadow: 0 8px 22px rgba(0, 203, 198, 0.4);
+  background: var(--color-action-primary-hover);
+  box-shadow: 0 8px 22px rgb(60 188 195 / 0.4);
 }
 .btn-primary[disabled] {
   background: var(--line-strong);
@@ -805,7 +812,7 @@ textarea {
   flex: 0 0 169px;
 }
 .mw-dialog-btn.is-teal {
-  background: #4fc7c7;
+  background: var(--color-action-primary);
   color: #fff;
   font-weight: 700;
 }
@@ -846,7 +853,7 @@ textarea {
 .mw-dialog-entity b {
   display: block;
   font-weight: 400;
-  color: #18c4c7;
+  color: var(--color-text-link);
 }
 .mw-dialog-error {
   margin: 16px 0 0;
@@ -1205,7 +1212,7 @@ textarea {
   display: inline-flex;
   width: 18px;
   height: 18px;
-  color: #00cbc6;
+  color: var(--color-action-primary);
   animation: autofillSparkle 4.5s ease-in-out infinite;
 }
 .method-sparkle svg {
@@ -1413,7 +1420,7 @@ textarea {
   line-height: 1;
   color: var(--accent-ink);
   background: #fff;
-  border: 2px solid #00cbc6;
+  border: 2px solid var(--color-action-primary);
   isolation: isolate;
   overflow: hidden;
   transition:
@@ -1428,7 +1435,7 @@ textarea {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: linear-gradient(90deg, #00cbc6 0%, #00d5bf 100%);
+  background: var(--color-action-primary);
   opacity: 0;
   transform: scale(0.7);
   transition:
@@ -1472,7 +1479,7 @@ textarea {
   display: inline-flex;
   width: 26px;
   height: 26px;
-  color: #00cbc6;
+  color: var(--color-action-primary);
   animation: autofillSparkle 4.5s ease-in-out infinite;
 }
 .autofill-spark svg {
@@ -1963,8 +1970,8 @@ textarea {
 .mdp-cell.selected {
   color: #fff;
   font-weight: 700;
-  background: linear-gradient(90deg, #00cbc6 0%, #00d5bf 100%);
-  box-shadow: 0 4px 10px rgba(0, 203, 198, 0.32);
+  background: var(--color-action-primary);
+  box-shadow: 0 4px 10px rgb(60 188 195 / 0.32);
 }
 .mdp-cell:active:not(.empty) {
   transform: scale(0.92);
@@ -2134,7 +2141,7 @@ textarea {
   width: 38px;
   height: 38px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #00cbc6 0%, #00d5bf 100%);
+  background: var(--color-action-primary);
   color: #fff;
   font-weight: 700;
   font-size: 14px;
@@ -2535,22 +2542,21 @@ textarea {
      1440px wide — the same width this app lays out at, so the numbers transfer
      directly rather than being scaled by eye.
 
-     WHY THE TEALS ARE NOT var(--accent). The design draws this step in #4FC7C7 /
-     #18C4C7, which is a lighter, bluer teal than the app's #36c3b4. They are
-     tokens rather than literals so the difference is visible in one place and can
-     be unified deliberately; scattering the hexes through the rules below is how
-     two brand teals become permanent.
+     THE TEALS ARE THE SHARED ONES (owner, 2026-11-18). The design's #4FC7C7 / #18C4C7
+     became @minty/shared/tokens.css's Minty Action (fills, checked boxes) and link ink
+     (the "Selected" text, the price); they stay named here so this step's roles read
+     in one place.
      ========================================================================== */
 :root {
-  --pick-line: #4fc7c7; /* selected card border, checkbox fill */
-  --pick-ink: #18c4c7; /* "Selected", SuperMinty, the price */
-  --pick-tile: #e9f8f8; /* the "After trial" tile */
+  --pick-line: var(--color-action-primary); /* selected card border, checkbox fill */
+  --pick-ink: var(--color-text-link); /* "Selected", SuperMinty, the price */
+  --pick-tile: var(--color-state-selected); /* the "After trial" tile */
   /* Summary panel, sampled from frame 01-A rather than mapped onto the app palette —
        these are colours the design uses only here, and rounding them to --ink-2 / --accent
        is what made the panel read as a different design from the one that was drawn. */
   --sum-label: #737a87; /* "Selected plan", "Payment method" */
   --sum-note: #6b7280; /* "/month" */
-  --sum-price: #4fc7c7; /* "HK$280", "Add card" */
+  --sum-price: var(--color-text-link); /* "HK$280", "Add card" */
   --sum-plan: #2e6ff2; /* a single module's name. NOT the bundle: SuperMinty is
                                   --pick-ink, and the two states are deliberately
                                   different colours in the design. */
@@ -2667,8 +2673,8 @@ textarea {
   box-shadow: 0 12px 28px rgba(15, 20, 25, 0.08);
 }
 .module-pick.selected .mp-frame {
-  background: linear-gradient(90deg, #00cbc6 0%, #00d5bf 100%);
-  box-shadow: 0 12px 32px rgba(0, 203, 198, 0.28);
+  background: var(--color-action-primary);
+  box-shadow: 0 12px 32px rgb(60 188 195 / 0.28);
 }
 .mp-card {
   position: relative;
@@ -2812,7 +2818,7 @@ textarea {
 .module-pick.selected .mp-circle {
   background: var(--pick-line);
   border-color: transparent;
-  box-shadow: 0 6px 14px rgba(79, 199, 199, 0.35);
+  box-shadow: 0 6px 14px rgb(60 188 195 / 0.35);
   transform: scale(1.05);
 }
 .mp-circle svg {
@@ -3735,7 +3741,7 @@ textarea {
      list of three, so the ring stays. */
 .billing-pm.is-chosen {
   outline-color: var(--pick-line);
-  box-shadow: 0 2px 10px rgba(79, 199, 199, 0.18);
+  box-shadow: 0 2px 10px rgb(60 188 195 / 0.18);
 }
 /* THE RADIO IS DRAWN, NOT THEMED. `accent-color` gives a coloured dot inside a thin
      ring; the design draws the inverse — a 6px teal ring around a white core — and no
@@ -3758,7 +3764,7 @@ textarea {
     border-width 0.15s;
 }
 .billing-pm input:checked {
-  border: 6px solid #2e9b9b;
+  border: 6px solid var(--color-action-primary);
 }
 .billing-pm input:focus-visible {
   outline: 2px solid var(--pick-line);
@@ -3929,7 +3935,7 @@ textarea {
 .billing-input:focus {
   outline: none;
   border-color: var(--pick-line);
-  box-shadow: 0 0 0 3px rgba(79, 199, 199, 0.18);
+  box-shadow: 0 0 0 3px rgb(60 188 195 / 0.18);
 }
 .billing-input:disabled {
   background: var(--surface);
@@ -4413,9 +4419,9 @@ textarea {
   --biz-ink: #e8833a;
 }
 .acs-biz.is-retail {
-  --biz-bg: #e9f5f1;
-  --biz-line: #cfe7df;
-  --biz-ink: #14a08f;
+  --biz-bg: var(--color-state-selected);
+  --biz-line: var(--minty-brand-200);
+  --biz-ink: var(--color-text-link);
   --biz-art: 189px;
 }
 .acs-biz.is-service {
@@ -4435,9 +4441,9 @@ textarea {
 }
 .acs-biz.is-on {
   /* the design's 2.5px edge: the 1px border plus an inner ring, so nothing moves */
-  border-color: #14a08f;
+  border-color: var(--color-border-selected);
   box-shadow:
-    inset 0 0 0 1.5px #14a08f,
+    inset 0 0 0 1.5px var(--color-border-selected),
     0 6px 18px rgba(0, 0, 0, 0.1);
 }
 .acs-biz:focus-visible {
@@ -4515,7 +4521,7 @@ textarea {
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
 }
 .acs-biz.is-on .acs-biz-go {
-  background: #14a08f;
+  background: var(--color-action-primary);
   color: #ffffff;
 }
 .acs-biz.is-none {
@@ -4543,7 +4549,7 @@ textarea {
   background: #f2f4f4;
 }
 .acs-biz.is-none.is-on .acs-biz-go {
-  background: #14a08f;
+  background: var(--color-action-primary);
 }
 .acs-business .acs-note {
   padding-top: 22px;
@@ -4656,8 +4662,8 @@ textarea {
   color: #ffffff;
 }
 .acs-coa-row.is-on .acs-coa-check {
-  background: #0f9b8e;
-  border-color: #0f9b8e;
+  background: var(--color-action-primary);
+  border-color: var(--color-action-primary);
 }
 .acs-coa-input:focus-visible + .acs-coa-check {
   outline: 2px solid var(--accent-ink);
@@ -4736,9 +4742,9 @@ textarea {
   padding: 16px;
   font-size: 15.5px;
   font-weight: 600;
-  color: #0f9b8e;
-  background: #f6fbfa;
-  border: 1.5px dashed #9ed6cf;
+  color: var(--color-text-link);
+  background: var(--color-state-selected);
+  border: 1.5px dashed var(--minty-brand-200);
   border-radius: 16px;
 }
 .acs-add .acs-coa-plus {
@@ -4749,11 +4755,11 @@ textarea {
   width: 44px;
   height: 44px;
   border-radius: 22px;
-  background: #ddf1ee;
+  background: var(--minty-brand-100);
   font-size: 24px;
   font-weight: 500;
   line-height: 1;
-  color: #0f9b8e;
+  color: var(--color-text-link);
 }
 .acs-sales .acs-group {
   margin-bottom: 0;
@@ -4785,7 +4791,7 @@ textarea {
 }
 .acs-xero-search:focus-within {
   border-color: var(--accent-ink);
-  box-shadow: 0 0 0 3px rgba(15, 122, 110, 0.15);
+  box-shadow: 0 0 0 3px rgb(25 103 107 / 0.15);
 }
 .acs-xero-search img {
   flex-shrink: 0;
@@ -4843,8 +4849,8 @@ textarea {
   color: #ffffff;
 }
 .acs-xero-box.is-on {
-  background: #0f9b8e;
-  border-color: #0f9b8e;
+  background: var(--color-action-primary);
+  border-color: var(--color-action-primary);
 }
 .acs-coa-input:focus-visible + .acs-xero-box {
   outline: 2px solid var(--accent-ink);
@@ -4890,13 +4896,13 @@ textarea {
   gap: 4px 12px;
   font-size: 13.5px;
   font-weight: 600;
-  color: #0f7a6e;
+  color: var(--color-text-link);
 }
 .acs-xero-more {
   min-height: 44px;
   padding: 0;
   font: inherit;
-  color: #0f9b8e;
+  color: var(--color-text-link);
   background: transparent;
   border: 0;
   cursor: pointer;
@@ -4959,8 +4965,8 @@ textarea {
 }
 .acs-exp.is-on {
   background: #ffffff;
-  border-color: #36c3b4;
-  box-shadow: inset 0 0 0 0.5px #36c3b4;
+  border-color: var(--color-border-selected);
+  box-shadow: inset 0 0 0 0.5px var(--color-border-selected);
 }
 .acs-exp-main {
   position: relative;
@@ -5010,10 +5016,10 @@ textarea {
   background: #fef3c7;
 }
 .acs-exp-icon.is-cleaning {
-  background: #ddf4fa;
+  background: var(--minty-brand-100);
 }
 .acs-exp-icon.is-delivery {
-  background: #dcf4ef;
+  background: var(--minty-brand-100);
 }
 .acs-exp-icon.is-marketing {
   background: #fce7ef;
@@ -5066,15 +5072,15 @@ textarea {
   padding: 18px 16px;
   font-size: 15.5px;
   font-weight: 600;
-  color: #0f9b8e;
-  background: #f6fbfa;
-  border: 1.5px dashed #9ed6cf;
+  color: var(--color-text-link);
+  background: var(--color-state-selected);
+  border: 1.5px dashed var(--minty-brand-200);
   border-radius: 16px;
 }
 .acs-add.acs-exp-add .acs-exp-add-label {
   font-size: 15.5px;
   font-weight: 600;
-  color: #0f9b8e;
+  color: var(--color-text-link);
 }
 .acs-add.acs-exp-add .acs-exp-add-hint {
   font-size: 12.5px;
@@ -5089,8 +5095,8 @@ textarea {
   gap: 14px;
   margin-bottom: 12px;
   padding: 16px 20px;
-  background: #e6f7f4;
-  border: 1px solid #9ed6cf;
+  background: var(--color-state-selected);
+  border: 1px solid var(--minty-brand-200);
   border-radius: 12px;
 }
 .acs-ready.is-warn {
@@ -5105,7 +5111,7 @@ textarea {
   width: 32px;
   height: 32px;
   border-radius: 16px;
-  background: #0f9b8e;
+  background: var(--color-action-primary);
   font-size: 16px;
   font-weight: 700;
   color: #ffffff;
@@ -5127,7 +5133,7 @@ textarea {
   margin: 0;
   font-size: 16px;
   font-weight: 700;
-  color: #0f7a6e;
+  color: var(--color-text-link);
 }
 .acs-ready.is-warn .acs-ready-title {
   color: #7e4e05;
@@ -5170,10 +5176,10 @@ textarea {
   background: #e4eefd;
 }
 .acs-role-icon.is-bank {
-  background: #dcf4ef;
+  background: var(--minty-brand-100);
 }
 .acs-role-icon.is-cash_sale {
-  background: #dff6ea;
+  background: var(--color-status-success-bg);
 }
 .acs-role-icon.is-discrepancy {
   background: #fef3c7;
@@ -5225,10 +5231,10 @@ textarea {
   gap: 6px;
   padding: 5px 12px 5px 10px;
   border-radius: 999px;
-  background: #e3f5ef;
+  background: var(--color-status-success-bg);
   font-size: 13px;
   font-weight: 600;
-  color: #0c6b4e;
+  color: var(--color-status-success-ink);
   white-space: nowrap;
 }
 .acs-role-dot {
@@ -5238,7 +5244,7 @@ textarea {
   width: 18px;
   height: 18px;
   border-radius: 9px;
-  background: #1e9e73;
+  background: var(--color-status-success-ink);
   font-size: 12px;
   font-weight: 700;
   color: #ffffff;
@@ -5268,16 +5274,16 @@ textarea {
 .acs-role-change {
   padding: 0;
   font-size: 13px;
-  color: #0f9b8e;
+  color: var(--color-text-link);
   background: transparent;
   border: 0;
 }
 .acs-role-setup {
   padding: 8px 16px;
   font-size: 13.5px;
-  color: #0f9b8e;
+  color: var(--color-text-link);
   background: #ffffff;
-  border: 1.5px solid #0f9b8e;
+  border: 1.5px solid var(--color-text-link);
   border-radius: 12px;
 }
 .acs-role-change:focus-visible,
@@ -5415,8 +5421,8 @@ textarea {
 .acs-mode-card.is-on {
   /* 2px without moving the content: one pixel of padding gives way */
   padding: 27px;
-  border: 2px solid #3ebbb1;
-  box-shadow: 0 10px 28px rgba(15, 163, 145, 0.14);
+  border: 2px solid var(--color-border-selected);
+  box-shadow: 0 10px 28px rgb(29 138 144 / 0.14);
 }
 .acs-mode-card:focus-visible {
   outline: 2px solid var(--accent-ink);
@@ -5702,8 +5708,8 @@ textarea {
   width: 44px;
   height: 44px;
   border-radius: 22px;
-  background: #e3f5ec;
-  color: #1f9a63;
+  background: var(--color-status-success-bg);
+  color: var(--color-status-success-ink);
 }
 .acs-sa.is-electronic .acs-sa-badge {
   background: #e4eefd;
@@ -5776,8 +5782,8 @@ textarea {
   padding: 14px 16px;
   font-size: 14px;
   font-weight: 500;
-  color: #2b5f5a;
-  background: #eaf4f2;
+  color: var(--color-text-link);
+  background: var(--color-state-selected);
   border-radius: 12px;
 }
 .acs-sa-note svg {
@@ -5825,8 +5831,8 @@ textarea {
   color: #e8833a;
 }
 .pc-method-badge.is-cash {
-  background: #e3f5ec;
-  color: #1f9a63;
+  background: var(--color-status-success-bg);
+  color: var(--color-status-success-ink);
 }
 .pc-method-heading {
   display: flex;

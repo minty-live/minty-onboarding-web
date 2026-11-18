@@ -87,13 +87,6 @@ import { inviteRows } from "../lib/invites";
 import { phoneForApi } from "../lib/validation";
 import { useMounted } from "../lib/useMounted";
 
-// Baked-in defaults that used to live in TWEAK_DEFAULTS (tweaks-panel removed from prod build)
-const ACCENT_DEFAULTS = {
-  accent: "#36c3b4",
-  accentInk: "#0f7a6e",
-  accentSoft: "#e6f7f4",
-};
-
 /** Petty Cash Settings' side menu: each sub-step's name. */
 const PETTY_SUB_LABEL: Record<number, string> = {
   5: "Sales",
@@ -1710,15 +1703,6 @@ export default function OnboardingApp() {
   }, [token, state.entity.id, state.entity.name, current, viewer]);
   useEffect(() => () => setSidebarSession(null), []);
 
-  // Apply accent CSS vars from baked-in defaults
-  useEffect(() => {
-    const r = document.documentElement;
-    r.style.setProperty("--accent", ACCENT_DEFAULTS.accent);
-    r.style.setProperty("--accent-ink", ACCENT_DEFAULTS.accentInk);
-    r.style.setProperty("--accent-soft", ACCENT_DEFAULTS.accentSoft);
-    r.style.setProperty("--accent-hover", ACCENT_DEFAULTS.accent);
-  }, []);
-
   // The last content step (immediately before "All Set", step 9) shows a
   // "Complete" button instead of "Save & Next". Which step that is depends on
   // the selected modules: Bills (8) when bills is on, otherwise Others (7).
@@ -1772,7 +1756,7 @@ export default function OnboardingApp() {
           </p>
           <a
             href={`${FLASK_BASE}/entity`}
-            className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#3CBCC3] px-5 text-sm font-semibold text-white no-underline hover:bg-[#35B2B9] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2FA4AB] active:bg-[#2FA4AB]"
+            className="inline-flex min-h-11 items-center justify-center rounded-lg bg-action-primary px-5 text-sm font-semibold text-white no-underline hover:bg-action-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-action-primary-pressed active:bg-action-primary-pressed"
           >
             Continue
           </a>

@@ -152,8 +152,9 @@ const STRIPE_APPEARANCE: Appearance = {
       padding: "12px 14px",
     },
     ".Input:focus": {
-      border: "1px solid #4FC7C7",
-      boxShadow: "0 0 0 3px rgba(79, 199, 199, 0.18)",
+      // Minty Action (tokens.css): Stripe's iframe cannot read our CSS variables, so the hex
+      border: "1px solid #3CBCC3",
+      boxShadow: "0 0 0 3px rgba(60, 188, 195, 0.18)",
       outline: "none",
     },
     ".Label": {
