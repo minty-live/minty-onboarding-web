@@ -218,7 +218,8 @@ describe("getDisplaySteps", () => {
     // Owner, 2026-11-11: Minty's own has step 5 alone; Xero maps its daily-closing accounts (6) and
     // its contacts (7), as a company from before step 4 asked does.
     expect(STEPS[6].label).toBe("Contact Setup");
-    expect(pettyIds("minty")).toEqual([5]);
+    // Owner, 2026-11-18: Minty's own also picks its Petty Cash codes (6, Account Code)
+    expect(pettyIds("minty")).toEqual([5, 6]);
     expect(pettyIds("xero")).toEqual([5, 6, 7]);
     expect(pettyIds(null)).toEqual([5, 6, 7]);
   });
@@ -469,8 +470,8 @@ describe("Minty on its own", () => {
     ).toBe(true);
   });
 
-  it("skips the account-code and contacts steps", () => {
-    expect(getActiveStepIds(["pettyCash", "bills"], "minty")).toEqual([1, 2, 3, 4, 5, 8, 9]);
+  it("skips the contacts step and asks its Petty Cash codes (6) since 2026-11-18", () => {
+    expect(getActiveStepIds(["pettyCash", "bills"], "minty")).toEqual([1, 2, 3, 4, 5, 6, 8, 9]);
     // The Xero path maps its daily-closing accounts in step 6 again (owner, 2026-11-11).
     expect(getActiveStepIds(["pettyCash", "bills"], "xero")).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
     expect(
@@ -480,7 +481,7 @@ describe("Minty on its own", () => {
     const petty = getDisplaySteps(["pettyCash"], "minty").find(
       (d) => d.label === "Petty Cash Settings",
     );
-    expect(petty?.ids).toEqual([5]);
+    expect(petty?.ids).toEqual([5, 6]);
     expect(getDisplaySteps([], null)[3].label).toBe("Accounting Setup");
   });
 

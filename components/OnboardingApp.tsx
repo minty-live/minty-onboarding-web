@@ -13,6 +13,7 @@ import {
   StepAccountCode,
   StepOthers,
   StepBills,
+  StepPettyCodes,
   StepInvite,
   StepAllSet,
 } from "./OnboardingSteps";
@@ -75,6 +76,7 @@ import type {
 } from "../lib/api";
 import type {
   AccountOptions,
+  PettySub,
   StepProps,
   SubmitFn,
   WizardState,
@@ -199,6 +201,16 @@ export default function OnboardingApp() {
   );
   // Petty Cash Settings' sub-steps by how Minty keeps the books (Minty's own: step 5 alone).
   const pettySteps = pettyIds(setupMode);
+  // Step 5 is two pages (owner, 2026-11-18): Sales, then Opening Balance - the side menu lists both.
+  const [pettySub, setPettySub] = useState<PettySub>("sales");
+  const pettyMenu = pettySteps.flatMap((id) =>
+    id === 5
+      ? [
+          { id, sub: "sales" as PettySub, label: "Sales" },
+          { id, sub: "opening" as PettySub, label: "Opening Balance" },
+        ]
+      : [{ id, sub: undefined as PettySub | undefined, label: PETTY_SUB_LABEL[id] }],
+  );
 
   // Helper: find the next active step id after `c`, or stay if at end.
   const nextActiveId = (c: number) => {
@@ -1309,6 +1321,76 @@ export default function OnboardingApp() {
     }
   };
 
+  const lastStepRef = useRef(current);
+  useEffect(() => {
+    const from = lastStepRef.current;
+    lastStepRef.current = current;
+    if (current === 5 && from !== 5) setPettySub(from > 5 ? "opening" : "sales");
+  }, [current]);
+
+  // Petty Cash's Account Code for Minty on its own (2026-11-18): step 4's expense accounts, ticked as
+  // the sheet set them (onboarding-api's /petty-cash-codes).
+  const pettyCodesLoadedRef = useRef(false);
+  useEffect(() => {
+    if (current !== 6 || setupMode !== "minty" || pettyCodesLoadedRef.current) return;
+    if (!token || !state.entity.id) return;
+    pettyCodesLoadedRef.current = true;
+    fetch(
+      urlFor(`/api/onboarding/petty-cash-codes?entity_id=${encodeURIComponent(state.entity.id)}`),
+      { headers: { Authorization: `Bearer ${token}` } },
+    )
+      .then((res) => {
+        if (!res.ok) throw new Error(`petty cash codes answered ${res.status}`);
+        return res.json() as Promise<{
+          codes: { code: string; name: string }[];
+          selected_codes: string[];
+        }>;
+      })
+      .then((data) => {
+        setAccountOptions((prev) => ({ ...prev, petty: data.codes || [] }));
+        const selected: Record<string, boolean> = {};
+        (data.selected_codes || []).forEach((c) => {
+          selected[c] = true;
+        });
+        setState((prev) => ({
+          ...prev,
+          pettyCash: { ...prev.pettyCash, pettyCodes: { all: false, selected } },
+        }));
+      })
+      .catch((err) => {
+        console.error("[onboarding] the petty cash account codes did not load", err);
+        pettyCodesLoadedRef.current = false;
+        toast.error("I couldn't load your petty cash account codes. Mind refreshing the page?");
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- toast is stable; reload on step/entity only
+  }, [current, token, state.entity.id, setupMode]);
+
+  const submitPettyCodes = async (): Promise<Result> => {
+    if (!token || !state.entity.id) return { ok: true };
+    const all = (accountOptions.petty || []).map((e) => e.code);
+    const pc = state.pettyCash.pettyCodes || { all: false, selected: {} };
+    const sel = pc.selected || {};
+    const selectedCodes = all.filter((c) =>
+      pc.all !== false ? sel[c] !== false : sel[c] === true,
+    );
+    try {
+      const res = await fetch(urlFor(`/api/onboarding/petty-cash-codes`), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ entity_id: state.entity.id, selected_codes: selectedCodes }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok)
+        return {
+          ok: false,
+          error: friendlyError(data, "I couldn't save those account codes. Mind trying again?"),
+        };
+      return { ok: true };
+    } catch {
+      return { ok: false, error: "I couldn't reach the server. Mind trying again?" };
+    }
+  };
+
   const billLoadedRef = useRef(false);
   useEffect(() => {
     if (current !== 8 || billLoadedRef.current) return;
@@ -1339,7 +1421,7 @@ export default function OnboardingApp() {
         }
         setState((prev) => ({
           ...prev,
-          bills: { ...prev.bills, billCodes: billCodesVal, defaultCode: data.default_code || "" },
+          bills: { ...prev.bills, billCodes: billCodesVal },
         }));
       })
       .catch((err) => {
@@ -1357,10 +1439,6 @@ export default function OnboardingApp() {
     const isAll = bc.all !== false;
     const sel = bc.selected || {};
     const selectedCodes = allCodes.filter((c) => (isAll ? sel[c] !== false : sel[c] === true));
-    // A default that was unticked since it was chosen is dropped, never sent: the API refuses it.
-    const defaultCode = selectedCodes.includes(state.bills.defaultCode || "")
-      ? state.bills.defaultCode
-      : "";
     try {
       const res = await fetch(urlFor(`/api/onboarding/bill-codes`), {
         method: "POST",
@@ -1368,7 +1446,6 @@ export default function OnboardingApp() {
         body: JSON.stringify({
           entity_id: state.entity.id,
           selected_codes: selectedCodes,
-          default_code: defaultCode,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -1668,6 +1745,9 @@ export default function OnboardingApp() {
     submitContacts,
     createContact,
     submitBills,
+    submitPettyCodes,
+    pettySub,
+    setPettySub,
     submitInvite,
     cancelInvite,
     resendInvite,
@@ -1726,29 +1806,32 @@ export default function OnboardingApp() {
         {pettySteps.length > 1 && pettySteps.includes(current) && (
           <aside className="pc-side-menu" aria-label="Petty Cash sub-steps">
             <div className="pc-side-title">Petty Cash Settings</div>
-            {pettySteps.map((id, index) => {
+            {pettyMenu.map((item, index) => {
               const num = String(index + 1);
-              const label = PETTY_SUB_LABEL[id];
+              const here = pettyMenu.findIndex(
+                (m) => m.id === current && (m.sub === undefined || m.sub === pettySub),
+              );
+              const active = index === here;
+              const done = here >= 0 ? index < here : current > item.id;
               // A sub-step is reachable once the user has been there. Forward
               // jumps to an incomplete step are still blocked inside goto(), so
               // clicking a not-yet-eligible item is a safe no-op; we disable it
               // here too so the cursor/affordance matches.
-              const reachable = id <= maxReached;
+              const reachable = item.id < current || (item.id <= maxReached && done) || active;
               return (
                 <button
-                  key={id}
+                  key={item.id + (item.sub || "")}
                   type="button"
-                  className={
-                    "pc-side-item" +
-                    (current === id ? " active" : "") +
-                    (current > id ? " done" : "")
-                  }
-                  onClick={() => goto(id)}
-                  disabled={!reachable || current === id}
-                  aria-current={current === id ? "step" : undefined}
+                  className={"pc-side-item" + (active ? " active" : "") + (done ? " done" : "")}
+                  onClick={() => {
+                    if (item.sub) setPettySub(item.sub);
+                    if (item.id !== current) goto(item.id);
+                  }}
+                  disabled={!reachable || active}
+                  aria-current={active ? "step" : undefined}
                 >
-                  <span className="substep-circle">{current > id ? <Icon.CheckSm /> : num}</span>
-                  <span className="substep-label">{label}</span>
+                  <span className="substep-circle">{done ? <Icon.CheckSm /> : num}</span>
+                  <span className="substep-label">{item.label}</span>
                 </button>
               );
             })}
@@ -1759,7 +1842,12 @@ export default function OnboardingApp() {
         {current === 3 && <StepInvite {...stepProps} />}
         {current === 4 && <StepAccountingSetup {...stepProps} />}
         {current === 5 && <StepSalesSetting {...stepProps} />}
-        {current === 6 && <StepAccountCode {...stepProps} />}
+        {current === 6 &&
+          (setupMode === "minty" ? (
+            <StepPettyCodes {...stepProps} />
+          ) : (
+            <StepAccountCode {...stepProps} />
+          ))}
         {current === 7 && <StepOthers {...stepProps} />}
         {current === 8 && <StepBills {...stepProps} />}
         {current === 9 && <StepAllSet {...stepProps} />}

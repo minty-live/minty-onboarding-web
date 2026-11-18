@@ -59,6 +59,9 @@ export type EntityForm = {
  * under all:true and OFF under all:false. components/steps/pettyCashFields owns the
  * reading and writing of this; nothing else should interpret it.
  */
+/** Step 5's two pages (owner, 2026-11-18): Sales, then Opening Balance. */
+export type PettySub = "sales" | "opening";
+
 export type CodeSelection = {
   all: boolean;
   selected: Record<string, boolean>;
@@ -74,6 +77,8 @@ export type PettyCashForm = {
   electronicMethods: string[];
   deliveryMethods: string[];
   expenseCodes: CodeSelection;
+  /** Petty Cash Settings' Account Code for Minty on its own (2026-11-18): the ticked codes. */
+  pettyCodes?: CodeSelection;
   /** The five account mappings and three contacts hold LABELS, resolved to ids on save. */
   pcAccount: string;
   depositAccount: string;
@@ -103,8 +108,6 @@ export type BillsForm = {
   dedupe: boolean;
   /** Filled by the bill-codes fetch on step 8. Absent before. */
   billCodes?: CodeSelection;
-  /** The ticked code a new payment request preselects; "" for none. */
-  defaultCode?: string;
 };
 
 export type XeroForm = {
@@ -201,6 +204,8 @@ export type AccountOptions = {
   expense: CodeOption[];
   contacts: AccountOption[];
   bill: CodeOption[];
+  /** Step 4's expense accounts for Petty Cash's Account Code (Minty on its own, 2026-11-18). */
+  petty?: CodeOption[];
 };
 
 /** The signed-in user, as the top bar shows it. */
@@ -249,6 +254,10 @@ export type StepProps = {
   submitContacts: () => Promise<Result>;
   createContact: (name: string) => Promise<ContactResult>;
   submitBills: () => Promise<Result>;
+  submitPettyCodes: () => Promise<Result>;
+  /** Step 5's page (Sales or Opening Balance), held by the wizard for its side menu. */
+  pettySub: PettySub;
+  setPettySub: (sub: PettySub) => void;
   submitInvite: (invite: InvitePayload) => Promise<InviteResult>;
   cancelInvite: (invitationId: string) => Promise<Result>;
   /** Send a pending invitation again (fresh link and expiry). `retryAfter` (seconds) is set

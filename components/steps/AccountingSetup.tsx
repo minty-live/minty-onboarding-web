@@ -186,8 +186,48 @@ export function StepAccountingSetup(props: Props) {
   const position = subs.indexOf(sub) + 1;
   const kicker = `Accounting setup · ${position} of ${subs.length}`;
 
+  // Accounting Setup's own side menu (owner, 2026-11-18), as Petty Cash Settings has: the path's
+  // screens, the current one marked, the ones passed ticked and a click away.
+  const SUB_LABEL: Record<Sub, string> = {
+    mode: "How Minty works",
+    business: "Business type",
+    sales: "Sales accounts",
+    expense: "Expense accounts",
+    xero: "Connect to Xero",
+    xexpense: "Expense accounts",
+  };
+  const menu = (
+    <aside className="pc-side-menu is-wide" aria-label="Accounting Setup screens">
+      <div className="pc-side-title">Accounting Setup</div>
+      {subs.map((s, i) => {
+        const here = subs.indexOf(sub);
+        const active = i === here;
+        const done = i < here;
+        return (
+          <button
+            key={s}
+            type="button"
+            className={"pc-side-item" + (active ? " active" : "") + (done ? " done" : "")}
+            onClick={() => go(s)}
+            disabled={!done}
+            aria-current={active ? "step" : undefined}
+          >
+            <span className="substep-circle">{done ? <Icon.CheckSm /> : String(i + 1)}</span>
+            <span className="substep-label">{SUB_LABEL[s]}</span>
+          </button>
+        );
+      })}
+    </aside>
+  );
+  const withMenu = (screen: React.ReactNode) => (
+    <>
+      {menu}
+      {screen}
+    </>
+  );
+
   if (sub === "xero") {
-    return (
+    return withMenu(
       <StepConnectXero
         kicker={kicker}
         state={state}
@@ -204,7 +244,7 @@ export function StepAccountingSetup(props: Props) {
         clearXeroConflict={props.clearXeroConflict}
         releaseXeroConflict={props.releaseXeroConflict}
         saveAndExit={saveAndExit}
-      />
+      />,
     );
   }
 
@@ -229,7 +269,7 @@ export function StepAccountingSetup(props: Props) {
   );
 
   if (sub === "mode") {
-    return (
+    return withMenu(
       <ModeScreen
         kicker={kicker}
         initial={accounting.mode}
@@ -246,11 +286,11 @@ export function StepAccountingSetup(props: Props) {
           remember({ mode });
           go(mode === "xero" ? "xero" : "business");
         }}
-      />
+      />,
     );
   }
   if (sub === "business") {
-    return (
+    return withMenu(
       <BusinessScreen
         kicker={kicker}
         initial={accounting}
@@ -267,11 +307,11 @@ export function StepAccountingSetup(props: Props) {
           forward();
           return true;
         }}
-      />
+      />,
     );
   }
   if (sub === "sales") {
-    return (
+    return withMenu(
       <SalesAccountsScreen
         kicker={kicker}
         initial={salesTicksOf(accountingOf(state))}
@@ -292,12 +332,12 @@ export function StepAccountingSetup(props: Props) {
           forward();
           return true;
         }}
-      />
+      />,
     );
   }
   const view = entityId ? setup : EMPTY_SETUP;
   if (!view) {
-    return (
+    return withMenu(
       <div className="acs" aria-busy={!loadError}>
         <p className="acs-kicker">{kicker}</p>
         {loadError ? (
@@ -311,7 +351,7 @@ export function StepAccountingSetup(props: Props) {
           <p className="acs-loading">Loading your accounts…</p>
         )}
         {nav(() => {}, true)}
-      </div>
+      </div>,
     );
   }
   const refreshXero = async () => {
@@ -324,7 +364,7 @@ export function StepAccountingSetup(props: Props) {
     toast.success("Your accounts are up to date with Xero.");
   };
   if (sub === "xexpense") {
-    return (
+    return withMenu(
       <XeroAccountsScreen
         key={sub}
         kind="expense"
@@ -339,11 +379,11 @@ export function StepAccountingSetup(props: Props) {
           forward();
           return null;
         }}
-      />
+      />,
     );
   }
   if (sub === "expense") {
-    return (
+    return withMenu(
       <AccountsScreen
         key={sub}
         kind={sub}
@@ -354,7 +394,7 @@ export function StepAccountingSetup(props: Props) {
         businessType={accounting.businessType}
         reload={reload}
         nav={() => nav(forward)}
-      />
+      />,
     );
   }
   return null;

@@ -216,3 +216,63 @@ describe("StepSalesSetting -- the lists follow the sales accounts", () => {
     expect(latest.pettyCash.electronicMethods).toEqual([]);
   });
 });
+
+// Opening Balance is its own sub-step (owner, 2026-11-18): Sales first - its Save & Next saves the
+// methods and opens Opening Balance, whose Back returns to Sales and whose Save & Next moves on.
+describe("StepSalesSetting -- Sales, then Opening Balance", () => {
+  function renderSteps() {
+    const next = vi.fn();
+    const submitSalesMethods = vi.fn(() => Promise.resolve({ ok: true as const }));
+    const submitOpeningBalance = vi.fn(() => Promise.resolve({ ok: true as const }));
+    function Steps() {
+      const [state, setState] = useState<WizardState>(initialState());
+      useEffect(() => remember(state), [state]);
+      return (
+        <ToastProvider>
+          <StepSalesSetting
+            state={state}
+            set={(patch) =>
+              setState((s) => ({ ...s, ...(typeof patch === "function" ? patch(s) : patch) }))
+            }
+            next={next}
+            back={vi.fn()}
+            submitSalesMethods={submitSalesMethods}
+            submitOpeningBalance={submitOpeningBalance}
+            saveAndExit={vi.fn()}
+          />
+        </ToastProvider>
+      );
+    }
+    render(<Steps />);
+    return { next, submitSalesMethods, submitOpeningBalance };
+  }
+
+  it("Sales asks no opening balance; its Save & Next saves the methods and opens Opening Balance", async () => {
+    serverToday("2001-02-03");
+    const { next, submitSalesMethods } = renderSteps();
+    expect(screen.queryByText("Petty Cash Opening Balance")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Save & Next/ }));
+    expect(await screen.findByText("Petty Cash Opening Balance")).toBeInTheDocument();
+    expect(submitSalesMethods).toHaveBeenCalledTimes(1);
+    expect(next).not.toHaveBeenCalled();
+    expect(screen.queryByText("Type of sales method of your company")).toBeNull();
+  });
+
+  it("Opening Balance: Back returns to Sales; Save & Next needs the balance, then moves on", async () => {
+    serverToday("2001-02-03");
+    const { next, submitOpeningBalance } = renderSteps();
+    fireEvent.click(screen.getByRole("button", { name: /Save & Next/ }));
+    await screen.findByText("Petty Cash Opening Balance");
+    fireEvent.click(screen.getByRole("button", { name: /Back/ }));
+    expect(await screen.findByText("Type of sales method of your company")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Save & Next/ }));
+    await screen.findByText("Petty Cash Opening Balance");
+    fireEvent.click(screen.getByRole("button", { name: /Save & Next/ }));
+    expect(await screen.findByText("I'll need a starting balance here.")).toBeInTheDocument();
+    expect(next).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByPlaceholderText("0.00"), { target: { value: "500" } });
+    fireEvent.click(screen.getByRole("button", { name: /Save & Next/ }));
+    await waitFor(() => expect(next).toHaveBeenCalledTimes(1));
+    expect(submitOpeningBalance).toHaveBeenCalled();
+  });
+});

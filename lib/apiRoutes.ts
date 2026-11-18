@@ -72,6 +72,8 @@ const DJANGO_PATHS = [
   "/api/onboarding/accounting/mode",
   "/api/onboarding/accounting/business",
   "/api/onboarding/accounting/sales-accounts",
+  // Petty Cash Settings: Account Code for Minty on its own (2026-11-18)
+  "/api/onboarding/petty-cash-codes",
   "/api/onboarding/accounting/autofill",
   "/api/onboarding/accounting/autofill/revert",
   "/api/onboarding/accounting/accounts",

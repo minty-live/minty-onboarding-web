@@ -132,7 +132,9 @@ export function salesTicksOf(a: AccountingForm): {
 }
 
 export function pettyIds(mode: SetupMode | null): number[] {
-  if (mode === "minty") return [5];
+  // Minty on its own: Sales and Opening Balance (5), then its Petty Cash codes (6, Account Code -
+  // owner, 2026-11-18); a Xero company chose them in X3.
+  if (mode === "minty") return [5, 6];
   return [5, 6, 7];
 }
 

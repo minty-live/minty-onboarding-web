@@ -4,7 +4,7 @@
 // expense accounts. The business type brings the sales accounts and daily closing's defaults; Petty
 // Cash Settings maps a Xero company's daily-closing accounts.
 
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { StepAccountingSetup } from "../steps/AccountingSetup";
 import { ToastProvider } from "../Toast";
@@ -145,6 +145,52 @@ const RETAIL_CHOSEN: AccountingForm = {
 };
 
 const saveAndNext = () => fireEvent.click(screen.getByRole("button", { name: /Save & Next/ }));
+
+// Accounting Setup's own side menu (owner, 2026-11-18), as Petty Cash Settings has: its screens by
+// path, the current one marked, the ones passed ticked and clickable.
+describe("Accounting Setup's side menu", () => {
+  const menu = () =>
+    within(screen.getByRole("complementary", { name: "Accounting Setup screens" }));
+
+  it("lists the Minty path's four screens and marks the one shown", () => {
+    renderStep({ mode: "minty", businessType: null, usesSalesCash: null });
+    expect(
+      menu()
+        .getAllByRole("button")
+        .map((b) => b.textContent),
+    ).toEqual([
+      expect.stringContaining("How Minty works"),
+      expect.stringContaining("Business type"),
+      expect.stringContaining("Sales accounts"),
+      expect.stringContaining("Expense accounts"),
+    ]);
+    expect(menu().getByRole("button", { name: /Business type/ })).toHaveAttribute(
+      "aria-current",
+      "step",
+    );
+    expect(menu().getByRole("button", { name: /Sales accounts/ })).toBeDisabled();
+  });
+
+  it("goes back to a screen already passed", async () => {
+    renderStep({ mode: "minty", businessType: null, usesSalesCash: null });
+    fireEvent.click(menu().getByRole("button", { name: /How Minty works/ }));
+    expect(await screen.findByText("How would you like Minty to work?")).toBeInTheDocument();
+  });
+
+  it("lists the Xero path's three screens", async () => {
+    renderStep({ mode: "xero", businessType: null, usesSalesCash: null });
+    await screen.findByText("Xero Integration");
+    expect(
+      menu()
+        .getAllByRole("button")
+        .map((b) => b.textContent),
+    ).toEqual([
+      expect.stringContaining("How Minty works"),
+      expect.stringContaining("Connect to Xero"),
+      expect.stringContaining("Expense accounts"),
+    ]);
+  });
+});
 
 describe("4.1 How would you like Minty to work?", () => {
   it("asks for a choice before moving on", () => {

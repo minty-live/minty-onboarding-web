@@ -367,6 +367,16 @@ textarea {
     display: none;
   }
 }
+/* Accounting Setup's (2026-11-18): its column is 904px, so the menu sits further out, and only
+   where the screen leaves room for both */
+.pc-side-menu.is-wide {
+  left: max(20px, calc(50vw - 452px - 236px));
+}
+@media (max-width: 1400px) {
+  .pc-side-menu.is-wide {
+    display: none;
+  }
+}
 /* Side menu sits in its own column; main page content stays centered. */
 .pc-side-title {
   font-size: 13px;

@@ -44,7 +44,7 @@ import {
   currencyCode,
   currencyDecimals,
 } from "./steps/pettyCashFields";
-import type { BillsForm, EntityForm, PettyCashForm, StepProps } from "../lib/types";
+import type { BillsForm, EntityForm, PettyCashForm, PettySub, StepProps } from "../lib/types";
 import type { CountryRow, CurrencyRow } from "../lib/refData";
 import type { PaymentMethod } from "../lib/billing";
 import type { ModuleId, Result, SetupGap } from "../lib/api";
@@ -1031,10 +1031,21 @@ export function StepSalesSetting({
   submitSalesMethods,
   submitOpeningBalance,
   saveAndExit,
+  pettySub,
+  setPettySub,
 }: Pick<
   StepProps,
   "state" | "set" | "next" | "back" | "submitSalesMethods" | "submitOpeningBalance" | "saveAndExit"
->) {
+> &
+  Partial<Pick<StepProps, "pettySub" | "setPettySub">>) {
+  // Two sub-steps (owner, 2026-11-18): Sales, then Opening Balance - each its own page. The wizard
+  // holds which one shows (its side menu lists both); on its own the step starts on Sales.
+  const [ownSub, setOwnSub] = useState<PettySub>("sales");
+  const sub = pettySub ?? ownSub;
+  const setSub = (to: PettySub) => {
+    (setPettySub ?? setOwnSub)(to);
+    if (typeof window !== "undefined") window.scrollTo?.({ top: 0 });
+  };
   // The lists follow the business type (owner, 2026-11-11): Restaurant & Food keeps Electronic and
   // Delivery; a retail shop, a service or a general business has one Non-cash list (sent as
   // electronic). A company from before the question (no type) keeps both. Owner, 2026-11-17 (Figma
@@ -1139,6 +1150,8 @@ export function StepSalesSetting({
 
   useEffect(() => {
     const onBlocked = () => {
+      // the wizard refused to go past step 5 without the balance: show the page that asks it
+      (setPettySub ?? setOwnSub)("opening");
       setShowBalanceError(true);
       requestAnimationFrame(() => {
         if (balanceRef.current) {
@@ -1150,7 +1163,20 @@ export function StepSalesSetting({
     };
     window.addEventListener("onb-validation-blocked", onBlocked);
     return () => window.removeEventListener("onb-validation-blocked", onBlocked);
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- the setter is stable
+
+  // Sales' Save & Next: the methods saved, then the Opening Balance page.
+  const salesNext = async () => {
+    if (saving) return;
+    setSaving(true);
+    const result = await submitSalesMethods();
+    setSaving(false);
+    if (!result?.ok) {
+      toast.error(result.error);
+      return;
+    }
+    setSub("opening");
+  };
 
   const tryNext = async () => {
     if (balanceEmpty) {
@@ -1268,7 +1294,80 @@ export function StepSalesSetting({
     : nonCash && ticks.electronic
       ? "Auto Fill starts with Bank Transfer. Remove any you don’t take, or add your own."
       : "These become the fields on your daily report’s Sales step.";
-  return (
+  const openingPage = (
+    <>
+      <div className="page-head" style={{ textAlign: "left", marginBottom: 18 }}>
+        <h2 style={{ fontSize: 30 }}>Petty Cash Opening Balance</h2>
+        <p style={{ marginTop: 6 }}>
+          Set the starting point so future movements reconcile correctly.
+        </p>
+      </div>
+      <div className="pc-stack">
+        <div
+          className={"pc-card" + (showBalanceError && balanceEmpty ? " is-error" : "")}
+          ref={balanceRef}
+        >
+          <div
+            className={"pc-field" + (showDateError && dateIsFuture ? " field-error" : "")}
+            ref={dateRef}
+          >
+            <div className="pc-sub">
+              Choose the first date that you wish to use{" "}
+              <span className="pc-hint">
+                (I&apos;ve put today&apos;s date in — click if you&apos;d like another)
+              </span>
+            </div>
+            <MintyDatePicker
+              value={p.openingDate || ""}
+              onChange={(v) => {
+                upd("openingDate", v);
+                setShowDateError(false);
+              }}
+              placeholder="Select a date"
+              maxDate={openingMaxDate}
+            />
+            {showDateError && dateIsFuture && (
+              <div className="field-required">
+                That day hasn&apos;t happened yet! Pick an earlier one?
+              </div>
+            )}
+          </div>
+          <div className={"pc-field" + (showBalanceError && balanceEmpty ? " field-error" : "")}>
+            <div className="pc-sub">
+              Choose the beginning petty cash balance of the day
+              <span className="req" aria-hidden>
+                *
+              </span>
+            </div>
+            <div className="field">
+              <div className="input-prefix">
+                <div className="prefix">
+                  {currencyCode(state.entity.currency, currencyRegistry)}
+                </div>
+                <input
+                  placeholder={balanceDecimals > 0 ? `0.${"0".repeat(balanceDecimals)}` : "0"}
+                  aria-required="true"
+                  {...balanceInput}
+                />
+              </div>
+            </div>
+            {showBalanceError && balanceEmpty && (
+              <div className="field-required">I&apos;ll need a starting balance here.</div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <StepNav
+        back={() => setSub("sales")}
+        saveAndExit={saveAndExit}
+        stepSubmit={stepSubmit}
+        tryNext={tryNext}
+        saving={saving}
+      />
+    </>
+  );
+  const salesPage = (
     <>
       <div className="page-head pc-page-head pc-sales-head">
         <p className="acs-kicker">Petty Cash Settings · Sales methods</p>
@@ -1336,72 +1435,134 @@ export function StepSalesSetting({
           <Icon.Info width={18} height={18} aria-hidden />
           <span>{note}</span>
         </p>
-
-        <div className="pc-section-head">
-          <div className="pc-section-title">Petty Cash Opening Balance</div>
-          <div className="pc-section-sub">
-            Set the starting point so future movements reconcile correctly.
-          </div>
-        </div>
-        <div
-          className={"pc-card" + (showBalanceError && balanceEmpty ? " is-error" : "")}
-          ref={balanceRef}
-        >
-          <div
-            className={"pc-field" + (showDateError && dateIsFuture ? " field-error" : "")}
-            ref={dateRef}
-          >
-            <div className="pc-sub">
-              Choose the first date that you wish to use{" "}
-              <span className="pc-hint">
-                (I&apos;ve put today&apos;s date in — click if you&apos;d like another)
-              </span>
-            </div>
-            <MintyDatePicker
-              value={p.openingDate || ""}
-              onChange={(v) => {
-                upd("openingDate", v);
-                setShowDateError(false);
-              }}
-              placeholder="Select a date"
-              maxDate={openingMaxDate}
-            />
-            {showDateError && dateIsFuture && (
-              <div className="field-required">
-                That day hasn&apos;t happened yet! Pick an earlier one?
-              </div>
-            )}
-          </div>
-          <div className={"pc-field" + (showBalanceError && balanceEmpty ? " field-error" : "")}>
-            <div className="pc-sub">
-              Choose the beginning petty cash balance of the day
-              <span className="req" aria-hidden>
-                *
-              </span>
-            </div>
-            <div className="field">
-              <div className="input-prefix">
-                <div className="prefix">
-                  {currencyCode(state.entity.currency, currencyRegistry)}
-                </div>
-                <input
-                  placeholder={balanceDecimals > 0 ? `0.${"0".repeat(balanceDecimals)}` : "0"}
-                  aria-required="true"
-                  {...balanceInput}
-                />
-              </div>
-            </div>
-            {showBalanceError && balanceEmpty && (
-              <div className="field-required">I&apos;ll need a starting balance here.</div>
-            )}
-          </div>
-        </div>
       </div>
 
       <StepNav
         back={back}
         saveAndExit={saveAndExit}
-        stepSubmit={stepSubmit}
+        stepSubmit={submitSalesMethods}
+        tryNext={salesNext}
+        saving={saving}
+      />
+    </>
+  );
+  if (sub === "opening") return openingPage;
+  return salesPage;
+}
+
+// --- Step 6 for Minty on its own: Petty Cash's account codes (owner, 2026-11-18) ---
+// Which of step 4's expense accounts appear when someone adds a petty cash expense - the list
+// Payment Request Settings has for payment requests (StepBills). Ticked as the sheet set them; at
+// least one stays ticked (the API refuses none too).
+export function StepPettyCodes({
+  state,
+  set,
+  next,
+  back,
+  accountOptions,
+  submitPettyCodes,
+  saveAndExit,
+  returnToStep,
+}: Pick<
+  StepProps,
+  | "state"
+  | "set"
+  | "next"
+  | "back"
+  | "accountOptions"
+  | "submitPettyCodes"
+  | "saveAndExit"
+  | "returnToStep"
+>) {
+  const p = state.pettyCash;
+  const [saving, setSaving] = useState(false);
+  const [showErrors, setShowErrors] = useState(false);
+  const toast = useToast();
+  const listRef = useRef<HTMLDivElement>(null);
+  const codes = ((accountOptions || {}).petty || []).map((e) => e.code);
+  const labels = Object.fromEntries(
+    ((accountOptions || {}).petty || []).map((e) => [
+      e.code,
+      e.name ? `${e.code} · ${e.name}` : e.code,
+    ]),
+  );
+  const pc = p.pettyCodes || { all: false, selected: {} };
+  const codeOn = (c: string) =>
+    pc.all !== false ? (pc.selected || {})[c] !== false : (pc.selected || {})[c] === true;
+  const noneTicked = codes.length > 0 && !codes.some(codeOn);
+
+  const tryNext = async () => {
+    if (saving) return;
+    if (noneTicked) {
+      setShowErrors(true);
+      requestAnimationFrame(() =>
+        listRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }),
+      );
+      return;
+    }
+    setShowErrors(false);
+    setSaving(true);
+    const result = await submitPettyCodes();
+    setSaving(false);
+    if (!result?.ok) {
+      toast.error(result.error);
+      return;
+    }
+    next();
+  };
+
+  return (
+    <>
+      <div className="page-head" style={{ textAlign: "left", marginBottom: 18 }}>
+        <h2 style={{ fontSize: 30 }}>Petty Cash Settings</h2>
+        <p style={{ marginTop: 6 }}>Choose which of your expense accounts appear in Petty Cash.</p>
+      </div>
+
+      <div className="pc-stack" ref={listRef}>
+        <AccountCodesCard
+          codes={codes}
+          labels={labels}
+          value={pc}
+          onChange={(v) => set({ pettyCash: { ...p, pettyCodes: v } })}
+          searchLabels={false}
+          labelAria={false}
+          bodyStyle={{ display: "block" }}
+          empty={
+            <>
+              Add an expense account in Accounting Setup first.{" "}
+              <button type="button" className="acc-empty-link" onClick={() => returnToStep(4)}>
+                Go to Accounting Setup
+              </button>
+            </>
+          }
+          header={
+            <div
+              className="method-head method-head-static"
+              style={{ flexDirection: "column", alignItems: "center", textAlign: "center", gap: 6 }}
+            >
+              <div className="method-title">
+                Petty Cash Account Code
+                <span className="req" aria-hidden>
+                  *
+                </span>
+              </div>
+              <div className="acc-sub">
+                Only the ticked account codes appear when you add an expense in Petty Cash.
+              </div>
+            </div>
+          }
+        />
+        {showErrors && noneTicked && (
+          <div className="field-required" role="alert">
+            Pick at least one account code.
+          </div>
+        )}
+      </div>
+
+      <StepNav
+        back={back}
+        saveAndExit={saveAndExit}
+        stepSubmit={submitPettyCodes}
         tryNext={tryNext}
         saving={saving}
       />
@@ -1901,23 +2062,6 @@ export function StepBills({
         {showErrors && noCodeTicked && (
           <div className="field-required" role="alert">
             Pick at least one account code.
-          </div>
-        )}
-        {billCodes.some(codeOn) && (
-          <div className="field bill-default">
-            <label>Default account code</label>
-            <div className="acc-sub">
-              Optional. A new payment request starts with this code selected.
-            </div>
-            <MintySelect
-              value={codeOn(b.defaultCode || "") ? b.defaultCode || "" : ""}
-              onChange={(v) => upd("defaultCode", v)}
-              options={[
-                { value: "", label: "No default" },
-                ...billCodes.filter(codeOn).map((c) => ({ value: c, label: billLabels[c] || c })),
-              ]}
-              searchable
-            />
           </div>
         )}
       </div>
