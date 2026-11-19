@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Plus_Jakarta_Sans } from "next/font/google";
+import { SessionExpiredHost } from "@minty/shared/ui";
 import "./globals.css";
 import { ToastProvider } from "@/components/Toast";
 import { SidebarShell } from "@/components/ui/SidebarShell";
@@ -41,6 +42,7 @@ export default function RootLayout({
           {/* The shared sidebar (@minty/shared), classic look - components/ui/SidebarShell.tsx. */}
           <SidebarShell>{children}</SidebarShell>
         </ToastProvider>
+        <SessionExpiredHost />
       </body>
     </html>
   );
