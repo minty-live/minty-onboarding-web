@@ -28,6 +28,16 @@ read: Flask never sent it, and the avatar followed it into `location.href`, so a
 value ran on click. Stripe.js is imported from `@stripe/stripe-js/pure` and loads when the
 billing sheet opens; its `return_url` is the page without a query.
 
+**When the token is refused** (Phase 9, 2026-11-19): a 401 means the token ran out or the
+Minty sign-in behind it ended (signed out, or 60 minutes without activity) - never Xero. The
+`GET /state` re-check on every step from 4 sends the browser to
+`wizardSession.signInAgainUrl` = accounts-api's `/entity/<id>/modules`, which relaunches the
+wizard with a fresh token while the sign-in lives and asks the person to sign in first when it
+does not. It used to open a "Your session has timed out ... your connection to Xero has
+expired - Reconnect to Xero" prompt, which blamed Xero for a Minty sign-in. The other wizard
+calls still show their own refusal sentence on a 401 (no automatic hand-off yet). Input on the
+open step is lost (no warning first, owner's S3).
+
 ## 2. Sign-in left this app (phase 2, 2026-10-05)
 
 Log in, sign up and invitations were this app's `/auth` and `/auth/confirm` until 2026-10-05.

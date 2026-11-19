@@ -74,6 +74,16 @@ export function clearTabEntity(): void {
   }
 }
 
+/** Where a refused token (401) sends the person (Phase 9, 2026-11-19). The 401 means the
+ * onboarding token ran out or the Minty sign-in behind it ended (signed out, or 60 minutes
+ * without activity) - nothing to do with Xero. accounts-api's company address relaunches the
+ * wizard for a company still onboarding with a fresh token while the sign-in lives, and asks the
+ * person to sign in first (then relaunches) when it has ended; before there is a company, Minty's
+ * front door. Input on the open step is lost (no warning first, owner's S3). */
+export function signInAgainUrl(base: string, entityId: string | null | undefined): string {
+  return entityId ? `${base}/entity/${encodeURIComponent(entityId)}/modules` : `${base}/`;
+}
+
 /** What a reload with nothing in the address bar resumes from: this tab's company and an
  * unexpired token, so GET /state (the source of truth) can rebuild the wizard. Null when
  * either is missing or the token has expired. */

@@ -1153,9 +1153,8 @@ function AccountsScreen({
     if (a.from_xero) return;
     setBusy(true);
     const answer = await accountingApi.remove(token, entityId, a.id);
+    // a used account can't be deleted (owner, 2026-11-18): the API says so, as a toast
     if (!answer.ok) toast.error(answer.error);
-    else if (answer.archived)
-      toast.info(`${a.name} is kept for the records that use it, and no longer offered.`);
     await reload();
     setBusy(false);
   };

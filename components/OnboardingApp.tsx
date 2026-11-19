@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
+import { onboardingFetch } from "@/lib/onboardingFetch";
+import { sessionExpiredShown } from "@/lib/sessionExpired";
 import ReactDOM from "react-dom";
 import Icon from "./Icon";
 import { friendlyError } from "../lib/errorCopy";
@@ -35,6 +37,7 @@ import {
   TAB_TOKEN_KEY,
   readTabToken,
   sessionKey,
+  signInAgainUrl,
   tabResume,
   takeLaunchParams,
   writeTabEntity,
@@ -126,12 +129,6 @@ export default function OnboardingApp() {
   // Set on resume when the user landed past step 4 but Xero isn't connected in
   // the DB — drives the "connect to accounting first" pop-up.
   const [needsXeroPrompt, setNeedsXeroPrompt] = useState(false);
-  // Why the needs-Xero pop-up is showing: 'not-connected' (the entity isn't
-  // connected in the DB) or 'expired' (the /state re-check came back 401 — the
-  // session lapsed, typically after ~30 min past step 4). Drives the modal copy.
-  const [xeroPromptReason, setXeroPromptReason] = useState<"not-connected" | "expired">(
-    "not-connected",
-  );
   // Set when the Xero OAuth round-trip returns `xero=mismatch` — the user logged
   // in with a Xero account whose email differs from the onboarding initiator's,
   // so the backend refused to connect the entity. Holds the email they MUST use
@@ -155,7 +152,9 @@ export default function OnboardingApp() {
   useEffect(() => {
     if (!token) return;
     let cancelled = false;
-    fetch(urlFor(`/api/onboarding/plans`), { headers: { Authorization: `Bearer ${token}` } })
+    onboardingFetch(urlFor(`/api/onboarding/plans`), {
+      headers: { Authorization: `Bearer ${token}` },
+    })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (!cancelled && data && Array.isArray(data.plans) && data.plans.length > 0) {
@@ -239,7 +238,7 @@ export default function OnboardingApp() {
   const persistSavedStep = (step: number) => {
     if (!token || !state.entity.id) return;
     try {
-      fetch(urlFor(`/api/onboarding/saved-step`), {
+      onboardingFetch(urlFor(`/api/onboarding/saved-step`), {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ entity_id: state.entity.id, saved_step: step }),
@@ -338,7 +337,7 @@ export default function OnboardingApp() {
   const resumeFromServer = async (entityId: string, resumeToken: string) => {
     let payload: OnboardingState | null = null;
     try {
-      const res = await fetch(
+      const res = await onboardingFetch(
         urlFor(`/api/onboarding/state?entity_id=${encodeURIComponent(entityId)}`),
         { headers: { Authorization: `Bearer ${resumeToken}` } },
       );
@@ -455,10 +454,7 @@ export default function OnboardingApp() {
       setMaxReached(ceiling);
       // Resumed past the Xero gate without a live connection — prompt the user
       // back to step 4 (they keep their place; the pop-up routes them).
-      if (derived.needsXero) {
-        setXeroPromptReason("not-connected");
-        setNeedsXeroPrompt(true);
-      }
+      if (derived.needsXero) setNeedsXeroPrompt(true);
       return;
     }
 
@@ -783,7 +779,7 @@ export default function OnboardingApp() {
       return { ok: true };
     }
     try {
-      const res = await fetch(urlFor(`/api/onboarding/xero/disconnect`), {
+      const res = await onboardingFetch(urlFor(`/api/onboarding/xero/disconnect`), {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ entity_id: state.entity.id }),
@@ -815,7 +811,7 @@ export default function OnboardingApp() {
     if (!holder) return { ok: false, error: "I don't know which company to disconnect." };
     if (!token) return { ok: false, error: "Please sign in again to do that." };
     try {
-      const res = await fetch(urlFor(`/api/onboarding/xero/release`), {
+      const res = await onboardingFetch(urlFor(`/api/onboarding/xero/release`), {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ entity_id: holder }),
@@ -847,19 +843,18 @@ export default function OnboardingApp() {
   // per-browser, so the inviter's cache never sees that revocation; only the
   // backend knows. Best-effort: a network/auth failure leaves the cached state
   // untouched so a transient blip can't wipe a real connection. Returns the
-  // backend's connected boolean, the string 'expired' when the session token
-  // was rejected (401 — the caller nudges the user to reconnect), or null if
-  // unknown.
+  // backend's connected boolean, the string 'expired' when the token was refused
+  // (401 — the caller sends the person to sign in again), or null if unknown.
   const verifyXeroConnection = async () => {
     if (!token || !state.entity.id) return null;
     try {
-      const res = await fetch(
+      const res = await onboardingFetch(
         urlFor(`/api/onboarding/state?entity_id=${encodeURIComponent(state.entity.id)}`),
         { headers: { Authorization: `Bearer ${token}` } },
       );
-      // 401 → the session token lapsed (typically ~30 min past step 4). Surface
-      // it distinctly so the caller can show the "reconnect" prompt rather than
-      // silently swallowing it as a transient blip.
+      // 401 → the token was refused: it ran out, or the Minty sign-in behind it
+      // ended (Phase 9). Surface it distinctly so the caller sends the person to
+      // sign in again rather than swallowing it as a transient blip.
       if (res.status === 401) return "expired";
       if (!res.ok) return null;
       const payload = await res.json().catch(() => null);
@@ -912,16 +907,17 @@ export default function OnboardingApp() {
       try {
         const connected = await verifyXeroConnection();
         if (cancelled) return;
+        if (connected === "expired") {
+          // The sign-in ended under us (Phase 9) - not Xero: relaunch through accounts-api,
+          // which asks the person to sign in first when it has to (lib/wizardSession.ts) -
+          // unless onboardingFetch already said the session has expired (2026-11-19).
+          if (!sessionExpiredShown())
+            window.location.href = signInAgainUrl(FLASK_BASE, stateRef.current.entity.id);
+          return;
+        }
         // A company keeping its books in Minty on its own has no Xero to lose.
-        if (current > 4 && !mintyOnItsOwn(stateRef.current)) {
-          if (connected === "expired") {
-            // Session lapsed under us — nudge the user to reconnect.
-            setXeroPromptReason("expired");
-            setNeedsXeroPrompt(true);
-          } else if (connected === false) {
-            setXeroPromptReason("not-connected");
-            setNeedsXeroPrompt(true);
-          }
+        if (current > 4 && !mintyOnItsOwn(stateRef.current) && connected === false) {
+          setNeedsXeroPrompt(true);
         }
       } finally {
         verifyingXeroRef.current = false;
@@ -976,7 +972,7 @@ export default function OnboardingApp() {
         // names need not be unique (owner, 2026-11-16). Accepts the same
         // field aliases as /create (entity_name|name, country|country_code,
         // currency|currency_code); we send the canonical names.
-        const res = await fetch(
+        const res = await onboardingFetch(
           urlFor(`/api/onboarding/entity/${encodeURIComponent(state.entity.id)}`),
           {
             method: "PUT",
@@ -1001,7 +997,7 @@ export default function OnboardingApp() {
 
     // --- First time through: create the entity. ---
     try {
-      const res = await fetch(urlFor(`/api/onboarding/create`), {
+      const res = await onboardingFetch(urlFor(`/api/onboarding/create`), {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(payload),
@@ -1035,7 +1031,7 @@ export default function OnboardingApp() {
         error: "I'll need at least one module to get started — which one sounds right?",
       };
     try {
-      const res = await fetch(urlFor(`/api/onboarding/modules`), {
+      const res = await onboardingFetch(urlFor(`/api/onboarding/modules`), {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ entity_id: state.entity.id, modules: moduleCodes }),
@@ -1056,7 +1052,7 @@ export default function OnboardingApp() {
     if (!token || !state.entity.id) return { ok: true };
     const ticks = salesTicksOf(accountingOf(state));
     try {
-      const res = await fetch(urlFor(`/api/onboarding/sales-methods`), {
+      const res = await onboardingFetch(urlFor(`/api/onboarding/sales-methods`), {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
@@ -1090,7 +1086,7 @@ export default function OnboardingApp() {
     // In the company currency's places (JPY is whole amounts); the API refuses finer ones.
     const decimals = currencyDecimals(state.entity.currency, await fetchCurrencies());
     try {
-      const res = await fetch(urlFor(`/api/onboarding/opening-balance`), {
+      const res = await onboardingFetch(urlFor(`/api/onboarding/opening-balance`), {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
@@ -1123,7 +1119,7 @@ export default function OnboardingApp() {
     // read is Xero's, and would answer 409).
     if (setupMode === "minty") return;
     accountLoadedRef.current = true;
-    fetch(
+    onboardingFetch(
       urlFor(`/api/onboarding/account-codes?entity_id=${encodeURIComponent(state.entity.id)}`),
       {
         headers: { Authorization: `Bearer ${token}` },
@@ -1223,7 +1219,7 @@ export default function OnboardingApp() {
     const sel = ec.selected || {};
     const selectedCodes = allCodes.filter((c) => (isAll ? sel[c] !== false : sel[c] === true));
     try {
-      const res = await fetch(urlFor(`/api/onboarding/account-codes`), {
+      const res = await onboardingFetch(urlFor(`/api/onboarding/account-codes`), {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(
@@ -1260,7 +1256,7 @@ export default function OnboardingApp() {
       discrepancy: idFor(p.discrepancyContact),
     };
     try {
-      const res = await fetch(urlFor(`/api/onboarding/contacts`), {
+      const res = await onboardingFetch(urlFor(`/api/onboarding/contacts`), {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ entity_id: state.entity.id, contacts }),
@@ -1291,7 +1287,7 @@ export default function OnboardingApp() {
       return { ok: true, option };
     }
     try {
-      const res = await fetch(urlFor(`/api/onboarding/contacts/create`), {
+      const res = await onboardingFetch(urlFor(`/api/onboarding/contacts/create`), {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ entity_id: state.entity.id, name: trimmed }),
@@ -1332,7 +1328,7 @@ export default function OnboardingApp() {
     if (current !== 6 || setupMode !== "minty" || pettyCodesLoadedRef.current) return;
     if (!token || !state.entity.id) return;
     pettyCodesLoadedRef.current = true;
-    fetch(
+    onboardingFetch(
       urlFor(`/api/onboarding/petty-cash-codes?entity_id=${encodeURIComponent(state.entity.id)}`),
       { headers: { Authorization: `Bearer ${token}` } },
     )
@@ -1371,7 +1367,7 @@ export default function OnboardingApp() {
       pc.all !== false ? sel[c] !== false : sel[c] === true,
     );
     try {
-      const res = await fetch(urlFor(`/api/onboarding/petty-cash-codes`), {
+      const res = await onboardingFetch(urlFor(`/api/onboarding/petty-cash-codes`), {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ entity_id: state.entity.id, selected_codes: selectedCodes }),
@@ -1393,9 +1389,12 @@ export default function OnboardingApp() {
     if (current !== 8 || billLoadedRef.current) return;
     if (!token || !state.entity.id) return;
     billLoadedRef.current = true;
-    fetch(urlFor(`/api/onboarding/bill-codes?entity_id=${encodeURIComponent(state.entity.id)}`), {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    onboardingFetch(
+      urlFor(`/api/onboarding/bill-codes?entity_id=${encodeURIComponent(state.entity.id)}`),
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    )
       .then((res) => {
         if (!res.ok) throw new Error(`bill codes answered ${res.status}`);
         return res.json() as Promise<BillCodesResponse>;
@@ -1437,7 +1436,7 @@ export default function OnboardingApp() {
     const sel = bc.selected || {};
     const selectedCodes = allCodes.filter((c) => (isAll ? sel[c] !== false : sel[c] === true));
     try {
-      const res = await fetch(urlFor(`/api/onboarding/bill-codes`), {
+      const res = await onboardingFetch(urlFor(`/api/onboarding/bill-codes`), {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
@@ -1467,7 +1466,7 @@ export default function OnboardingApp() {
     if (!token || !state.entity.id)
       return { ok: true, invitation: { email, role, first_name, last_name } };
     try {
-      const res = await fetch(urlFor(`/api/onboarding/invite`), {
+      const res = await onboardingFetch(urlFor(`/api/onboarding/invite`), {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ entity_id: state.entity.id, email, role, first_name, last_name }),
@@ -1497,7 +1496,7 @@ export default function OnboardingApp() {
   const cancelInvite = async (invitationId: string): Promise<Result> => {
     if (!token || !invitationId) return { ok: true };
     try {
-      const res = await fetch(urlFor(`/api/onboarding/invite/cancel`), {
+      const res = await onboardingFetch(urlFor(`/api/onboarding/invite/cancel`), {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ invitation_id: invitationId }),
@@ -1517,7 +1516,7 @@ export default function OnboardingApp() {
   const resendInvite: StepProps["resendInvite"] = async (invitationId) => {
     if (!token || !invitationId) return { ok: true };
     try {
-      const res = await fetch(urlFor(`/api/onboarding/invite/resend`), {
+      const res = await onboardingFetch(urlFor(`/api/onboarding/invite/resend`), {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ invitation_id: invitationId }),
@@ -1541,9 +1540,12 @@ export default function OnboardingApp() {
     if (current !== 8 || invitesLoadedRef.current) return;
     if (!token || !state.entity.id) return;
     invitesLoadedRef.current = true;
-    fetch(urlFor(`/api/onboarding/invite?entity_id=${encodeURIComponent(state.entity.id)}`), {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    onboardingFetch(
+      urlFor(`/api/onboarding/invite?entity_id=${encodeURIComponent(state.entity.id)}`),
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    )
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (!data || !Array.isArray(data.invitations)) return;
@@ -1587,7 +1589,7 @@ export default function OnboardingApp() {
     // Clears the mid-onboarding flag so the entity routes to its dashboard on the next
     // entity-list click instead of bouncing back here, and starts the module trials.
     try {
-      const res = await fetch(urlFor(`/api/onboarding/finalize`), {
+      const res = await onboardingFetch(urlFor(`/api/onboarding/finalize`), {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ entity_id: state.entity.id }),
@@ -1642,7 +1644,7 @@ export default function OnboardingApp() {
     // must never block the exit, and resume falls back to the derived step.
     if (token && state.entity.id) {
       try {
-        await fetch(urlFor(`/api/onboarding/saved-step`), {
+        await onboardingFetch(urlFor(`/api/onboarding/saved-step`), {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify({ entity_id: state.entity.id, saved_step: current }),
@@ -1889,14 +1891,11 @@ export default function OnboardingApp() {
               }}
             >
               <p id="xero-prompt-title" className="skip-modal-lead">
-                {xeroPromptReason === "expired"
-                  ? "Your session has timed out."
-                  : "Connect to your accounting system first."}
+                Connect to your accounting system first.
               </p>
               <p className="skip-modal-body" style={{ marginBottom: 32 }}>
-                {xeroPromptReason === "expired"
-                  ? "It has been more than 30 minutes, so your connection to Xero has expired. Please go back to the “Connect to Accounting System” step and reconnect to continue your setup."
-                  : "You’re not connected to Xero yet. Please go back to the “Connect to Accounting System” step and connect before continuing your setup."}
+                You’re not connected to Xero yet. Please go back to the “Connect to Accounting
+                System” step and connect before continuing your setup.
               </p>
               <div
                 className="skip-modal-actions"
@@ -1911,7 +1910,7 @@ export default function OnboardingApp() {
                     setCurrent(4);
                   }}
                 >
-                  {xeroPromptReason === "expired" ? "Reconnect to Xero" : "Go to Connect step"}
+                  Go to Connect step
                 </button>
               </div>
             </div>

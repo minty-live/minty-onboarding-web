@@ -1,6 +1,7 @@
 import type { ApiErrorBody } from "./api";
 import { urlFor } from "./apiRoutes";
 import { errorCopy, HOUSE_FALLBACK } from "./errorCopy";
+import { onboardingFetch } from "@/lib/onboardingFetch";
 
 /**
  * The payer's saved cards, and consent to bill an entity — the wire half of the billing sheet.
@@ -113,7 +114,7 @@ async function call<T>(
 
   let res: Response;
   try {
-    res = await fetch(urlFor(path), {
+    res = await onboardingFetch(urlFor(path), {
       method,
       headers: {
         Authorization: `Bearer ${token}`,

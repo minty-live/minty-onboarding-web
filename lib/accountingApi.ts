@@ -5,6 +5,7 @@
 import { friendlyError } from "./errorCopy";
 import { urlFor } from "./apiRoutes";
 import type { BusinessType, SetupMode } from "./types";
+import { onboardingFetch } from "@/lib/onboardingFetch";
 
 export type AccountKind = "sales" | "expense";
 export type SlotRole = "petty_cash" | "bank" | "cash_sale" | "discrepancy" | "director";
@@ -73,7 +74,7 @@ async function call<T extends object>(
   body?: object,
 ): Promise<Answer<T>> {
   try {
-    const res = await fetch(urlFor(`/api/onboarding/accounting${path}`), {
+    const res = await onboardingFetch(urlFor(`/api/onboarding/accounting${path}`), {
       method,
       headers: {
         Authorization: `Bearer ${token}`,
@@ -146,7 +147,7 @@ export const accountingApi = {
       ...input,
     }),
   remove: (token: string, entityId: string, accountId: string) =>
-    call<{ archived: boolean }>(
+    call<{ message: string }>(
       token,
       "DELETE",
       `/accounts/${encodeURIComponent(accountId)}?${q(entityId)}`,

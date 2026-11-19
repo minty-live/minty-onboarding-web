@@ -60,3 +60,14 @@ Running it and the two variables (`ACCOUNTS_API_URL`, `ONBOARDING_API_URL`): the
 `npm test` (Vitest) and `npm run test:e2e` (Playwright against a running stack —
 `e2e/README.md`; 23 on 2026-09-18 against the deployed hosts, Xero faked at the browser).
 The cleanse log is in `../code_cleanse/`.
+
+## Sign-in: 30 minutes, renewed; signed out after 60 idle (owner, 2026-11-19)
+
+Every call to the onboarding API goes through `lib/onboardingFetch.ts`: a 401 on a call that carried the
+person's token relaunches the wizard through accounts-api (`signInAgainUrl`), which hands over a fresh
+30-minute token while the Minty sign-in lives (the quiet renewal) and asks the person to sign in when it
+has ended (60 minutes without activity, or signed out). A token handed over in the last minute that is
+still refused comes back as a refusal, so nothing loops. Tests: `lib/__tests__/onboardingFetch.test.ts`.
+
+**"Your session has expired" (owner, 2026-11-19).** A 401 whose body carries `"reason": "session_expired"` - every API adds it when the Minty sign-in behind the token has ENDED (signed out, or 60 minutes without activity; minty-accounts-api `docs/features/authentication.md` 3.3) - is not renewed quietly: `lib/sessionExpired.ts` reads it (`isSessionExpired(body)`) and calls ONE local `showSessionExpired(loginUrl)`, once however many calls fail together, and the quiet hand-off then stays put. Today that call only goes to the sign-in page; the pop-up ("Your session has expired", one OK) is to come from `@minty/shared` as one component for every app and will sit behind the same call. `loginUrl` = accounts-api's front door `/?next=` the wizard's relaunch (`/entity/<id>/modules`;
+`onboardingFetch.sessionExpiredLoginUrl`), fresh token or not - the reason is the server's word.

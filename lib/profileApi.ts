@@ -20,6 +20,7 @@ import type { Profile, ProfileApi, ProfileChanges, SubscriptionsList } from "@mi
 import { sidebarHost } from "@/components/ui/sidebarHost";
 import { HOUSE_FALLBACK } from "@/lib/errorCopy";
 import { urlFor } from "@/lib/apiRoutes";
+import { onboardingFetch } from "@/lib/onboardingFetch";
 
 const PROFILE = "/api/onboarding/me/profile";
 const SUBSCRIPTIONS = "/api/onboarding/me/subscriptions";
@@ -29,7 +30,7 @@ const CONTACT = "/api/onboarding/me/contact";
 const PER_PAGE = 100;
 
 async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const res = await fetch(urlFor(path), {
+  const res = await onboardingFetch(urlFor(path), {
     ...init,
     headers: {
       ...(init.body ? { "Content-Type": "application/json" } : {}),
