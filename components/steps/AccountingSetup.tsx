@@ -4,11 +4,14 @@
 // this branch's classic look. 4.1 asks how Minty keeps the books. With Xero, the next screen is
 // today's Connect to Xero (X1, StepConnectXero) and the wizard goes on as before. On its own: the
 // business type and the cash question (4.2), the sales and expense accounts with Auto Fill (4.3,
-// 4.4) and, with Petty Cash, the five accounts daily closing needs (4.5). Every change is saved as
-// it is made (minty-onboarding-api's /accounting routes), so Save & Next only moves on.
+// 4.4) and, with Petty Cash, the five accounts daily closing needs (4.5). Each screen holds its
+// picks until its Save & Next (minty-onboarding-api's /accounting routes): the expense list sends
+// its ticks, edits, adds and removes in one PUT /accounting/accounts (2026-11-20), as the Xero
+// expense list sends its ticks in one POST /accounting/xero-accounts.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AutofillButton from "../AutofillButton";
+import { ConfirmDialog } from "../ConfirmDialog";
 import Icon from "../Icon";
 import MintySelect from "../MintySelect";
 import { StepConnectXero } from "../OnboardingSteps";
@@ -27,7 +30,11 @@ import {
 } from "../../lib/accountingApi";
 import { accountingOf, salesTicksOf } from "../../lib/wizardSteps";
 import { useStepDraftField } from "../../lib/stepDraft";
-import type { BusinessType, StepProps } from "../../lib/types";
+import type { Result } from "../../lib/api";
+import type { BusinessType, StepProps, SubmitFn } from "../../lib/types";
+
+/** What a screen's Save & Exit save answers (`SubmitFn`): saved, or the refusal's sentence. */
+type ExitSaved = { ok: true } | { ok: false; error: string };
 
 // Owner, 2026-11-11: no daily-closing (4.5 / X4) screen any more - the business type's set brings the
 // sales accounts and the daily-closing defaults (Minty), and Petty Cash Settings' Account Code maps the
@@ -255,13 +262,14 @@ export function StepAccountingSetup(props: Props) {
     );
   }
 
-  const nav = (onNext: () => void, busy = false) => (
+  // `submitFn`: what Save & Exit saves first, for a screen that holds its changes until saved.
+  const nav = (onNext: () => void, busy = false, submitFn?: SubmitFn) => (
     <div className="step-nav">
       <button className="btn btn-ghost" onClick={backward}>
         <Icon.ArrowLeft /> Back
       </button>
       <div className="step-actions">
-        <SaveExitLink saveAndExit={saveAndExit} disabled={busy} />
+        <SaveExitLink saveAndExit={saveAndExit} submitFn={submitFn} disabled={busy} />
         <button className="btn btn-primary" onClick={onNext} disabled={busy}>
           {busy ? (
             "Saving…"
@@ -275,21 +283,53 @@ export function StepAccountingSetup(props: Props) {
     </div>
   );
 
+  // Each screen's answer saved WITHOUT moving on: Save & Next adds the move, Save & Exit leaves
+  // after it (2026-11-20 - Save & Exit used to save nothing but the place to come back to).
+  const saveMode = async (mode: "minty" | "xero"): Promise<ExitSaved> => {
+    const answer = entityId
+      ? await accountingApi.setMode(token, entityId, mode)
+      : ({ ok: true } as const);
+    if (!answer.ok) return { ok: false, error: answer.error };
+    remember({ mode });
+    return { ok: true };
+  };
+  const saveBusiness = async (
+    businessType: BusinessType | null,
+    usesSalesCash: boolean,
+  ): Promise<ExitSaved> => {
+    const answer = entityId
+      ? await accountingApi.setBusiness(token, entityId, businessType, usesSalesCash)
+      : ({ ok: true } as const);
+    if (!answer.ok) return { ok: false, error: answer.error };
+    remember({ businessType, usesSalesCash });
+    return { ok: true };
+  };
+  const saveSales = async (ticks: SalesTicks): Promise<ExitSaved> => {
+    const answer = entityId
+      ? await accountingApi.setSalesAccounts(token, entityId, ticks)
+      : ({ ok: true } as const);
+    if (!answer.ok) return { ok: false, error: answer.error };
+    remember({
+      usesSalesCash: ticks.cash,
+      sellsElectronic: ticks.electronic,
+      sellsDelivery: ticks.delivery,
+    });
+    return { ok: true };
+  };
+
   if (sub === "mode") {
     return withMenu(
       <ModeScreen
         initial={accounting.mode}
         connected={state.xero.connected}
         nav={nav}
+        onExitSave={saveMode}
         onSave={async (mode) => {
-          const answer = entityId
-            ? await accountingApi.setMode(token, entityId, mode)
-            : ({ ok: true } as const);
+          const answer = await saveMode(mode);
           if (!answer.ok) {
             toast.error(answer.error);
             return;
           }
-          remember({ mode });
           go(mode === "xero" ? "xero" : "business");
         }}
       />,
@@ -300,15 +340,13 @@ export function StepAccountingSetup(props: Props) {
       <BusinessScreen
         initial={accounting}
         nav={nav}
+        onExitSave={saveBusiness}
         onSave={async (businessType, usesSalesCash) => {
-          const answer = entityId
-            ? await accountingApi.setBusiness(token, entityId, businessType, usesSalesCash)
-            : ({ ok: true } as const);
+          const answer = await saveBusiness(businessType, usesSalesCash);
           if (!answer.ok) {
             toast.error(answer.error);
             return false;
           }
-          remember({ businessType, usesSalesCash });
           forward();
           return true;
         }}
@@ -320,19 +358,13 @@ export function StepAccountingSetup(props: Props) {
       <SalesAccountsScreen
         initial={salesTicksOf(accountingOf(state))}
         nav={nav}
+        onExitSave={saveSales}
         onSave={async (ticks) => {
-          const answer = entityId
-            ? await accountingApi.setSalesAccounts(token, entityId, ticks)
-            : ({ ok: true } as const);
+          const answer = await saveSales(ticks);
           if (!answer.ok) {
             toast.error(answer.error);
             return false;
           }
-          remember({
-            usesSalesCash: ticks.cash,
-            sellsElectronic: ticks.electronic,
-            sellsDelivery: ticks.delivery,
-          });
           forward();
           return true;
         }}
@@ -374,6 +406,12 @@ export function StepAccountingSetup(props: Props) {
         setup={view}
         nav={nav}
         onRefresh={refreshXero}
+        onExitSave={async (ids) => {
+          const answer = await accountingApi.xeroTicks(token, entityId, "expense", ids);
+          if (!answer.ok) return { ok: false, error: answer.error };
+          setSetup(answer);
+          return { ok: true };
+        }}
         onSave={async (ids) => {
           const answer = await accountingApi.xeroTicks(token, entityId, "expense", ids);
           if (!answer.ok) return answer.error;
@@ -393,8 +431,11 @@ export function StepAccountingSetup(props: Props) {
         token={token}
         entityId={entityId}
         businessType={accounting.businessType}
-        reload={reload}
-        nav={() => nav(forward)}
+        nav={nav}
+        onSaved={(answer) => {
+          if (answer) setSetup(answer);
+          forward();
+        }}
       />,
     );
   }
@@ -408,11 +449,14 @@ function ModeScreen({
   connected,
   nav,
   onSave,
+  onExitSave,
 }: {
   initial: "minty" | "xero" | null;
   connected: boolean;
-  nav: (onNext: () => void, busy?: boolean) => React.ReactNode;
+  nav: (onNext: () => void, busy?: boolean, submitFn?: SubmitFn) => React.ReactNode;
   onSave: (mode: "minty" | "xero") => Promise<void>;
+  /** Save & Exit: the pick saved first, without moving on. */
+  onExitSave: (mode: "minty" | "xero") => Promise<ExitSaved>;
 }) {
   const [mode, setMode] = useState<"minty" | "xero" | null>(initial ?? (connected ? "xero" : null));
   // Each screen's pick is kept in the step's auto-saved draft until its Save (lib/stepDraft.ts).
@@ -487,15 +531,19 @@ function ModeScreen({
       <p className="acs-note acs-mode-note">
         Not sure? Start with Minty only — you can connect Xero later in Settings.
       </p>
-      {nav(async () => {
-        if (!mode) {
-          setRefused(true);
-          return;
-        }
-        setSaving(true);
-        await onSave(mode);
-        setSaving(false);
-      }, saving)}
+      {nav(
+        async () => {
+          if (!mode) {
+            setRefused(true);
+            return;
+          }
+          setSaving(true);
+          await onSave(mode);
+          setSaving(false);
+        },
+        saving,
+        async () => (mode ? onExitSave(mode) : null),
+      )}
     </div>
   );
 }
@@ -539,10 +587,13 @@ function SalesAccountsScreen({
   initial,
   nav,
   onSave,
+  onExitSave,
 }: {
   initial: SalesTicks;
-  nav: (onNext: () => void, busy?: boolean) => React.ReactNode;
+  nav: (onNext: () => void, busy?: boolean, submitFn?: SubmitFn) => React.ReactNode;
   onSave: (ticks: SalesTicks) => Promise<boolean>;
+  /** Save & Exit: the ticks saved first (none ticked is not saved), without moving on. */
+  onExitSave: (ticks: SalesTicks) => Promise<ExitSaved>;
 }) {
   const [ticks, setTicks] = useState<SalesTicks>({
     cash: initial.cash,
@@ -627,7 +678,11 @@ function SalesAccountsScreen({
           Settings.
         </span>
       </p>
-      {nav(() => void save(), saving)}
+      {nav(
+        () => void save(),
+        saving,
+        async () => (none ? null : onExitSave(ticks)),
+      )}
     </div>
   );
 }
@@ -638,10 +693,13 @@ function BusinessScreen({
   initial,
   nav,
   onSave,
+  onExitSave,
 }: {
   initial: { businessType: BusinessType | null; usesSalesCash: boolean | null };
-  nav: (onNext: () => void, busy?: boolean) => React.ReactNode;
+  nav: (onNext: () => void, busy?: boolean, submitFn?: SubmitFn) => React.ReactNode;
   onSave: (businessType: BusinessType | null, usesSalesCash: boolean) => Promise<boolean>;
+  /** Save & Exit: the business type saved first (none chosen is not saved), without moving on. */
+  onExitSave: (businessType: BusinessType | null, usesSalesCash: boolean) => Promise<ExitSaved>;
 }) {
   const answered = initial.usesSalesCash !== null;
   const [business, setBusiness] = useState<BusinessType | "none" | "">(
@@ -774,7 +832,14 @@ function BusinessScreen({
       <p className="acs-note">
         You can change your business type or any account anytime in Settings.
       </p>
-      {nav(save, saving)}
+      {nav(save, saving, async () =>
+        business
+          ? onExitSave(
+              business === "none" ? null : (business as BusinessType),
+              initial.usesSalesCash !== false,
+            )
+          : null,
+      )}
     </div>
   );
 }
@@ -1080,22 +1145,64 @@ function RowMenu({
   );
 }
 
+/** What the list holds until Save & Next (plan item 4, 2026-11-20), as X3 holds its ticks. */
+type HeldRow = { key: string; code: string; name: string; type: string; on: boolean };
+type Held = {
+  /** The company's accounts taken off the list: unticked (still shown) or removed (`hidden` too). */
+  off: string[];
+  hidden: string[];
+  /** Auto Fill suggestions ticked (template ids). */
+  ticked: string[];
+  /** The company's accounts edited: id -> the new code, name and type. */
+  edits: Record<string, AccountInput>;
+  /** Accounts added on this screen. */
+  added: HeldRow[];
+};
+const NOTHING_HELD: Held = { off: [], hidden: [], ticked: [], edits: {}, added: [] };
+
+const rowKey = (code: string, name: string) => `${code}|${name.trim().toLowerCase()}`;
+const flip = (list: string[], id: string) =>
+  list.includes(id) ? list.filter((x) => x !== id) : [...list, id];
+const union = (a: string[], b: string[]) => [...new Set([...a, ...b])];
+const groupOf = (type: string): Account["group"] =>
+  type === "direct_costs"
+    ? "cost_of_sales"
+    : ["expense", "overheads"].includes(type)
+      ? "running_costs"
+      : null;
+
+/** One row as the list draws it: an account the company has, one added here, or a suggestion. */
+type Item = {
+  key: string;
+  origin: "account" | "added" | "suggestion";
+  code: string;
+  name: string;
+  type: string;
+  description: string;
+  group: Account["group"];
+  on: boolean;
+  /** A row from the accounting team's sheet: an Auto Fill suggestion or an account it added. */
+  fromSheet: boolean;
+  fromXero: boolean;
+};
+
 function AccountsScreen({
   kind,
   setup,
   token,
   entityId,
   businessType,
-  reload,
   nav,
+  onSaved,
 }: {
   kind: AccountKind;
   setup: Setup;
   token: string;
   entityId: string;
   businessType: BusinessType | null;
-  reload: () => Promise<void>;
-  nav: () => React.ReactNode;
+  nav: (onNext: () => void, busy: boolean, submitFn: SubmitFn) => React.ReactNode;
+  /** Saved (the step as the API now answers it), or nothing to save: the wizard moves on. */
+  onSaved: (answer: Setup | null) => void;
 }) {
   const toast = useToast();
   const accounts = setup.accounts[kind];
@@ -1103,19 +1210,33 @@ function AccountsScreen({
   const [busy, setBusy] = useState(false);
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
+  const [asking, setAsking] = useState<Item | null>(null);
+  const [saveError, setSaveError] = useState("");
   // Which form is open, so Restore opens it again before putting its fields back.
   useStepDraftField(`acs.adding.${kind}`, adding, setAdding);
   useStepDraftField(`acs.editing.${kind}`, editing, setEditing);
+  // Every tick, edit, add and remove waits for Save & Next, and is kept in the step's auto-saved
+  // draft until then.
+  const [held, setHeldState] = useState<Held>(NOTHING_HELD);
+  useStepDraftField(`acs.held.${kind}`, held, setHeldState);
+  const setHeld = (change: (h: Held) => Held) => {
+    setSaveError("");
+    setHeldState(change);
+  };
+
   // Filled = something Revert would take out. A kept row (Cash Over / Short, which daily closing
   // uses) is not Auto Fill's any more, or Revert would seem to fill the list again (2026-11-11).
-  const autoFilled = accounts.some((a) => a.auto_filled);
-  const filled = autoFilled || (suggestions !== null && suggestions.length > 0);
+  const autoFilled = accounts.some((a) => a.auto_filled && !held.off.includes(a.id));
+  const filled =
+    autoFilled || held.ticked.length > 0 || (suggestions !== null && suggestions.length > 0);
   const basedOn = BUSINESS_WORDS[businessType || "general"];
   const typeLabels = Object.fromEntries(setup.types.map((t) => [t.value, t.label]));
 
-  // Once the list has Auto Fill rows, the template's other suggestions show unticked beside them.
+  // Once the list has Auto Fill rows (or a restored draft ticked some), the template's
+  // suggestions show beside them, ticked or not.
+  const wantsSuggestions = autoFilled || held.ticked.length > 0;
   useEffect(() => {
-    if (suggestions !== null || !autoFilled) return;
+    if (suggestions !== null || !wantsSuggestions) return;
     let current = true;
     void accountingApi
       .suggestions(token, entityId, kind)
@@ -1124,73 +1245,244 @@ function AccountsScreen({
     return () => {
       current = false;
     };
-  }, [autoFilled, suggestions, token, entityId, kind]);
+  }, [wantsSuggestions, suggestions, token, entityId, kind]);
 
+  // Auto Fill only READS what the template offers (GET /accounting/autofill writes nothing) and
+  // ticks its usual rows here; Save & Next adds them.
   const autoFill = async () => {
     setBusy(true);
     const offer = await accountingApi.suggestions(token, entityId, kind);
+    setBusy(false);
     if (!offer.ok) {
-      setBusy(false);
       toast.error(offer.error);
       return;
     }
     if (offer.options.length === 0) {
-      setBusy(false);
       toast.info("There are no suggestions for this business yet. Add your own accounts instead.");
       return;
     }
-    const chosen = offer.options.filter((o) => o.ticked && !o.added).map((o) => o.template_id);
-    const added = chosen.length
-      ? await accountingApi.autofill(token, entityId, kind, chosen)
-      : null;
-    if (added && !added.ok) toast.error(added.error);
     setSuggestions(offer.options);
-    await reload();
-    setBusy(false);
+    setHeld((h) => {
+      const own = new Map(accounts.map((a) => [rowKey(a.code, a.name), a.id]));
+      const typed = new Set(h.added.map((n) => rowKey(n.code, n.name)));
+      const usual = offer.options.filter((o) => o.ticked);
+      // an account the company has that a usual row names comes back on, if it was taken off
+      const back = usual.flatMap((o) => own.get(rowKey(o.code, o.name)) ?? []);
+      const fresh = usual
+        .filter((o) => !own.has(rowKey(o.code, o.name)) && !typed.has(rowKey(o.code, o.name)))
+        .map((o) => o.template_id);
+      return {
+        ...h,
+        off: h.off.filter((id) => !back.includes(id)),
+        hidden: h.hidden.filter((id) => !back.includes(id)),
+        ticked: union(h.ticked, fresh),
+      };
+    });
   };
 
-  const revert = async () => {
-    setBusy(true);
-    const answer = await accountingApi.revert(token, entityId, kind);
-    if (!answer.ok) toast.error(answer.error);
-    else if (answer.kept.length)
-      toast.info(
-        `${answer.kept.length} stayed because Minty already uses them: ${answer.kept.map((k) => k.name).join(", ")}.`,
-      );
-    // the fresh list first: cleared before it, the old Auto Fill rows would fetch the suggestions
-    // straight back and the list would read as filled again (2026-11-11)
-    await reload();
+  // Revert takes the Auto Fill rows off the list (the ones nothing uses yet: `auto_filled`).
+  const revert = () => {
+    const filledIds = accounts.filter((a) => a.auto_filled).map((a) => a.id);
+    setHeld((h) => ({
+      ...h,
+      ticked: [],
+      off: union(h.off, filledIds),
+      hidden: union(h.hidden, filledIds),
+    }));
     setSuggestions(null);
-    setBusy(false);
   };
 
-  const untick = async (a: Account) => {
-    if (a.from_xero) return;
+  // ---- the list as it stands ----
+  const offered = new Set((suggestions || []).map((s) => rowKey(s.code, s.name)));
+  const accountItems: Item[] = accounts
+    // removed ones are gone until Auto Fill offers them again
+    .filter((a) => !held.hidden.includes(a.id) || offered.has(rowKey(a.code, a.name)))
+    .map((a) => {
+      const edit = held.edits[a.id];
+      return {
+        key: a.id,
+        origin: "account",
+        code: edit?.code ?? a.code,
+        name: edit?.name ?? a.name,
+        type: edit?.type ?? a.type,
+        description: a.description,
+        group: edit ? groupOf(edit.type) : a.group,
+        on: !held.off.includes(a.id),
+        fromSheet: a.source === "template",
+        fromXero: a.from_xero,
+      };
+    });
+  const addedItems: Item[] = held.added.map((n) => ({
+    key: n.key,
+    origin: "added",
+    code: n.code,
+    name: n.name,
+    type: n.type,
+    description: "",
+    group: groupOf(n.type),
+    on: n.on,
+    fromSheet: false,
+    fromXero: false,
+  }));
+  const taken = new Set([
+    ...accounts.map((a) => rowKey(a.code, a.name)),
+    ...held.added.map((n) => rowKey(n.code, n.name)),
+  ]);
+  const suggestionItems: Item[] = (suggestions || [])
+    .filter((s) => !taken.has(rowKey(s.code, s.name)))
+    .map((s) => ({
+      key: s.template_id,
+      origin: "suggestion",
+      code: s.code,
+      name: s.name,
+      type: s.type,
+      description: s.description,
+      group: s.group,
+      on: held.ticked.includes(s.template_id),
+      fromSheet: true,
+      fromXero: false,
+    }));
+  const items = [...accountItems, ...addedItems, ...suggestionItems];
+
+  const changed =
+    held.off.length > 0 ||
+    held.ticked.length > 0 ||
+    Object.keys(held.edits).length > 0 ||
+    held.added.some((n) => n.on);
+
+  const toggle = (it: Item) => {
+    if (it.fromXero) return;
+    setHeld((h) =>
+      it.origin === "account"
+        ? { ...h, off: flip(h.off, it.key), hidden: h.hidden.filter((id) => id !== it.key) }
+        : it.origin === "added"
+          ? { ...h, added: h.added.map((n) => (n.key === it.key ? { ...n, on: !n.on } : n)) }
+          : { ...h, ticked: flip(h.ticked, it.key) },
+    );
+  };
+
+  // An account the company has asks first (it is taken out at Save & Next); a row added here
+  // simply goes.
+  const remove = (it: Item) => {
+    if (it.origin === "account") setAsking(it);
+    else if (it.origin === "added")
+      setHeld((h) => ({ ...h, added: h.added.filter((n) => n.key !== it.key) }));
+    if (editing === it.key) setEditing(null);
+  };
+  const confirmRemove = () => {
+    if (!asking) return;
+    const id = asking.key;
+    setHeld((h) => ({ ...h, off: union(h.off, [id]), hidden: union(h.hidden, [id]) }));
+    if (editing === id) setEditing(null);
+    setAsking(null);
+  };
+
+  /** A code or name another row on the list already has (the API checks again on save). */
+  const clashes = (input: AccountInput, except?: string): Record<string, string> => {
+    const others = items.filter((i) => i.on && i.key !== except);
+    const byCode = input.code ? others.find((i) => i.code === input.code) : undefined;
+    const byName = others.find(
+      (i) => i.name.trim().toLowerCase() === input.name.trim().toLowerCase(),
+    );
+    return {
+      ...(byCode
+        ? { code: `The code ${input.code} is already used by ${byCode.name}. Choose another code.` }
+        : {}),
+      ...(byName
+        ? { name: `Another account is already called ${byName.name}. Choose another name.` }
+        : {}),
+    };
+  };
+  const refusedOrOk = (fields: Record<string, string>): Answer<object> =>
+    Object.keys(fields).length
+      ? { ok: false, error: Object.values(fields)[0], fields }
+      : { ok: true };
+
+  const addRow = async (input: AccountInput): Promise<Answer<object>> => {
+    const answer = refusedOrOk(clashes(input));
+    if (!answer.ok) return answer;
+    setHeld((h) => ({
+      ...h,
+      added: [
+        ...h.added,
+        {
+          key: `new-${Date.now().toString(36)}-${h.added.length}`,
+          code: input.code,
+          name: input.name,
+          type: input.type,
+          on: true,
+        },
+      ],
+    }));
+    setAdding(false);
+    return answer;
+  };
+  const editRow = async (it: Item, input: AccountInput): Promise<Answer<object>> => {
+    const answer = refusedOrOk(clashes(input, it.key));
+    if (!answer.ok) return answer;
+    setHeld((h) => {
+      if (it.origin === "added")
+        return {
+          ...h,
+          added: h.added.map((n) => (n.key === it.key ? { ...n, ...input, key: n.key } : n)),
+        };
+      const original = accounts.find((a) => a.id === it.key);
+      const edits = { ...h.edits };
+      if (
+        original &&
+        original.code === input.code &&
+        original.name === input.name &&
+        original.type === input.type
+      )
+        delete edits[it.key];
+      else edits[it.key] = { code: input.code, name: input.name, type: input.type };
+      return { ...h, edits };
+    });
+    setEditing(null);
+    return answer;
+  };
+
+  // ---- Save & Next: one PUT with the list as it stands ----
+  /** Saved: the step as the API now answers it (null when there was nothing to send). */
+  const put = async (): Promise<Result<{ saved: Setup | null }>> => {
+    if (!changed || !entityId) return { ok: true, saved: null };
     setBusy(true);
-    const answer = await accountingApi.remove(token, entityId, a.id);
-    // a used account can't be deleted (owner, 2026-11-18): the API says so, as a toast
-    if (!answer.ok) toast.error(answer.error);
-    await reload();
+    setSaveError("");
+    const answer = await accountingApi.saveAccounts(token, entityId, kind, held.ticked, [
+      ...accounts
+        .filter((a) => !a.from_xero && !held.off.includes(a.id))
+        .map((a) => {
+          const edit = held.edits[a.id];
+          return {
+            id: a.id,
+            code: edit?.code ?? a.code,
+            name: edit?.name ?? a.name,
+            type: edit?.type ?? a.type,
+            description: a.description,
+          };
+        }),
+      ...held.added
+        .filter((n) => n.on)
+        .map((n) => ({ code: n.code, name: n.name, type: n.type, description: "" })),
+    ]);
     setBusy(false);
+    if (!answer.ok) {
+      // nothing was written: the list stays as held, with the reason beside Save & Next
+      setSaveError(answer.error);
+      return { ok: false, error: answer.error };
+    }
+    return { ok: true, saved: answer };
+  };
+  // Save & Exit saves the held list first (OnboardingApp `saveAndExit`); a refusal keeps the draft.
+  const send: SubmitFn = async () => {
+    const result = await put();
+    return result.ok ? { ok: true } : result;
+  };
+  const saveAndNext = async () => {
+    const result = await put();
+    if (result.ok) onSaved(result.saved);
   };
 
-  const tick = async (s: Suggestion) => {
-    setBusy(true);
-    const answer = await accountingApi.autofill(token, entityId, kind, [s.template_id]);
-    if (!answer.ok) toast.error(answer.error);
-    await reload();
-    setBusy(false);
-  };
-
-  const added = new Set(accounts.map((a) => `${a.code}|${a.name.toLowerCase()}`));
-  const unticked = (suggestions || []).filter(
-    (s) => !added.has(`${s.code}|${s.name.toLowerCase()}`),
-  );
-  type Item = { key: string; account?: Account; suggestion?: Suggestion; group: Account["group"] };
-  const items: Item[] = [
-    ...accounts.map((a) => ({ key: a.id, account: a, group: a.group })),
-    ...unticked.map((s) => ({ key: s.template_id, suggestion: s, group: s.group })),
-  ];
   const groups: { id: string; title: string | null; items: Item[] }[] =
     kind === "sales"
       ? [{ id: "all", title: null, items }].filter((g) => g.items.length > 0)
@@ -1215,8 +1507,31 @@ function AccountsScreen({
         : "Press Auto Fill for the usual ones, or add your own."
       : "Choose the categories that apply to your business. Staff pick from these when they add an expense.";
   const noun = kind === "sales" ? "sales category" : "category";
+  const listNoun = kind === "sales" ? "sales categories" : "expense categories";
 
   const sales = kind === "sales";
+  const editForm = (it: Item) => (
+    <AccountForm
+      idPrefix={`acs-edit-${it.key}`}
+      title="Edit account"
+      types={KIND_TYPES[kind]}
+      typeLabels={typeLabels}
+      nextCode={setup.next_code}
+      initial={{ code: it.code, name: it.name, type: it.type }}
+      submitLabel="Save"
+      onCancel={() => setEditing(null)}
+      onSave={(input) => editRow(it, input)}
+    />
+  );
+  const menuFor = (it: Item) =>
+    it.origin !== "suggestion" && !it.fromXero ? (
+      <RowMenu
+        name={it.name}
+        disabled={busy}
+        onEdit={() => setEditing(it.key)}
+        onRemove={() => remove(it)}
+      />
+    ) : null;
   return (
     <div className={"acs" + (sales ? " acs-sales" : " acs-expense")}>
       <div className="page-head acs-head acs-mode-head">
@@ -1236,9 +1551,7 @@ function AccountsScreen({
 
       {items.length === 0 && !adding && (
         <div className="acs-empty">
-          <p className="acs-empty-title">
-            No {kind === "sales" ? "sales categories" : "expense categories"} yet
-          </p>
+          <p className="acs-empty-title">No {listNoun} yet</p>
           <p>Auto Fill adds the usual ones. Or add your own, one at a time.</p>
         </div>
       )}
@@ -1252,54 +1565,16 @@ function AccountsScreen({
           )}
           <ul className={sales ? "acs-coa" : "acs-cards"}>
             {g.items.map((it) =>
-              it.account && editing === it.account.id ? (
+              editing === it.key && it.origin !== "suggestion" ? (
                 <li key={it.key} className="acs-row is-editing">
-                  <AccountForm
-                    idPrefix={`acs-edit-${it.account.id}`}
-                    title="Edit account"
-                    types={KIND_TYPES[kind]}
-                    typeLabels={typeLabels}
-                    nextCode={setup.next_code}
-                    initial={{
-                      code: it.account.code,
-                      name: it.account.name,
-                      type: it.account.type,
-                    }}
-                    submitLabel="Save"
-                    onCancel={() => setEditing(null)}
-                    onSave={async (input) => {
-                      const answer = await accountingApi.update(
-                        token,
-                        entityId,
-                        it.account!.id,
-                        input,
-                      );
-                      if (answer.ok) {
-                        setEditing(null);
-                        await reload();
-                      }
-                      return answer;
-                    }}
-                  />
+                  {editForm(it)}
                 </li>
               ) : sales ? (
-                <li key={it.key} className={"acs-coa-row" + (it.account ? " is-on" : "")}>
-                  <span
-                    className={
-                      "acs-coa-icon is-" +
-                      salesGlyph(
-                        it.account?.name ?? it.suggestion!.name,
-                        it.account?.type ?? it.suggestion!.type,
-                      )
-                    }
-                    aria-hidden
-                  >
+                <li key={it.key} className={"acs-coa-row" + (it.on ? " is-on" : "")}>
+                  <span className={"acs-coa-icon is-" + salesGlyph(it.name, it.type)} aria-hidden>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={`/accounting/glyph-${salesGlyph(
-                        it.account?.name ?? it.suggestion!.name,
-                        it.account?.type ?? it.suggestion!.type,
-                      )}.svg`}
+                      src={`/accounting/glyph-${salesGlyph(it.name, it.type)}.svg`}
                       width={34}
                       height={34}
                       alt=""
@@ -1307,51 +1582,30 @@ function AccountsScreen({
                   </span>
                   <label className="acs-coa-main">
                     <span className="acs-coa-text">
-                      <span className="acs-coa-name">
-                        {it.account?.name ?? it.suggestion!.name}
-                      </span>
+                      <span className="acs-coa-name">{it.name}</span>
                       <span className="acs-coa-meta">
-                        {[
-                          it.account?.code ?? it.suggestion!.code,
-                          it.account?.description || it.suggestion?.description,
-                        ]
-                          .filter(Boolean)
-                          .join("  ·  ")}
+                        {[it.code, it.description].filter(Boolean).join("  ·  ")}
                       </span>
                     </span>
                     <input
                       type="checkbox"
                       className="acs-coa-input"
-                      checked={!!it.account}
-                      disabled={busy || !!it.account?.from_xero}
-                      onChange={() => (it.account ? untick(it.account) : tick(it.suggestion!))}
+                      checked={it.on}
+                      disabled={busy || it.fromXero}
+                      onChange={() => toggle(it)}
                     />
                     <span className="acs-coa-check" aria-hidden>
-                      {it.account && <Icon.CheckSm width={16} height={16} />}
+                      {it.on && <Icon.CheckSm width={16} height={16} />}
                     </span>
                   </label>
-                  {it.account && !it.account.from_xero ? (
-                    <RowMenu
-                      name={it.account.name}
-                      disabled={busy}
-                      onEdit={() => setEditing(it.account!.id)}
-                      onRemove={() => untick(it.account!)}
-                    />
-                  ) : (
-                    <span className="acs-menu" aria-hidden />
-                  )}
+                  {menuFor(it) ?? <span className="acs-menu" aria-hidden />}
                 </li>
               ) : (
-                <li key={it.key} className={"acs-exp" + (it.account ? " is-on" : "")}>
+                <li key={it.key} className={"acs-exp" + (it.on ? " is-on" : "")}>
                   <label className="acs-exp-main">
                     <span className="acs-exp-top">
                       {(() => {
-                        const icon = expenseIcon(
-                          it.account?.code ?? it.suggestion!.code,
-                          it.account?.name ?? it.suggestion!.name,
-                          it.account?.type ?? it.suggestion!.type,
-                          it.account ? it.account.source === "template" : true,
-                        );
+                        const icon = expenseIcon(it.code, it.name, it.type, it.fromSheet);
                         return (
                           <span className={"acs-exp-icon " + icon.className} aria-hidden>
                             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1362,40 +1616,26 @@ function AccountsScreen({
                       <input
                         type="checkbox"
                         className="acs-coa-input"
-                        checked={!!it.account}
-                        disabled={busy || !!it.account?.from_xero}
-                        onChange={() => (it.account ? untick(it.account) : tick(it.suggestion!))}
+                        checked={it.on}
+                        disabled={busy || it.fromXero}
+                        onChange={() => toggle(it)}
                       />
                       <span
-                        className={"acs-xero-box acs-exp-box" + (it.account ? " is-on" : "")}
+                        className={"acs-xero-box acs-exp-box" + (it.on ? " is-on" : "")}
                         aria-hidden
                       >
-                        {it.account && <Icon.CheckSm width={14} height={14} />}
+                        {it.on && <Icon.CheckSm width={14} height={14} />}
                       </span>
                     </span>
-                    <span className="acs-exp-name">{it.account?.name ?? it.suggestion!.name}</span>
-                    {(it.account?.description || it.suggestion?.description) && (
-                      <span
-                        className="acs-exp-body"
-                        title={it.account?.description || it.suggestion?.description}
-                      >
-                        {it.account?.description || it.suggestion?.description}
+                    <span className="acs-exp-name">{it.name}</span>
+                    {it.description && (
+                      <span className="acs-exp-body" title={it.description}>
+                        {it.description}
                       </span>
                     )}
-                    {(it.account?.code ?? it.suggestion!.code) && (
-                      <span className="acs-exp-code">
-                        Code {it.account?.code ?? it.suggestion!.code}
-                      </span>
-                    )}
+                    {it.code && <span className="acs-exp-code">Code {it.code}</span>}
                   </label>
-                  {it.account && !it.account.from_xero && (
-                    <RowMenu
-                      name={it.account.name}
-                      disabled={busy}
-                      onEdit={() => setEditing(it.account!.id)}
-                      onRemove={() => untick(it.account!)}
-                    />
-                  )}
+                  {menuFor(it)}
                 </li>
               ),
             )}
@@ -1412,14 +1652,7 @@ function AccountsScreen({
           nextCode={setup.next_code}
           submitLabel="Add"
           onCancel={() => setAdding(false)}
-          onSave={async (input) => {
-            const answer = await accountingApi.create(token, entityId, input);
-            if (answer.ok) {
-              setAdding(false);
-              await reload();
-            }
-            return answer;
-          }}
+          onSave={addRow}
         />
       ) : (
         <button
@@ -1442,7 +1675,26 @@ function AccountsScreen({
           )}
         </button>
       )}
-      {nav()}
+      {saveError && (
+        <p className="field-required" role="alert">
+          {saveError}
+        </p>
+      )}
+      {nav(() => void saveAndNext(), busy, send)}
+
+      {asking && (
+        <ConfirmDialog
+          title={`Remove ${asking.name}?`}
+          confirmLabel="Remove"
+          confirmTone="red"
+          onConfirm={confirmRemove}
+          onBack={() => setAsking(null)}
+        >
+          <p className="mw-dialog-body">
+            {asking.name} comes off your {listNoun} when you press Save &amp; Next.
+          </p>
+        </ConfirmDialog>
+      )}
     </div>
   );
 }
@@ -1481,13 +1733,16 @@ function XeroAccountsScreen({
   nav,
   onRefresh,
   onSave,
+  onExitSave,
 }: {
   kind: AccountKind;
   setup: Setup;
-  nav: (onNext: () => void, busy?: boolean) => React.ReactNode;
+  nav: (onNext: () => void, busy?: boolean, submitFn?: SubmitFn) => React.ReactNode;
   onRefresh: () => Promise<void>;
   /** Saves the ticks; answers the refusal's sentence, or null when saved. */
   onSave: (ids: string[]) => Promise<string | null>;
+  /** Save & Exit: the ticks saved first (none ticked is not saved), without moving on. */
+  onExitSave: (ids: string[]) => Promise<ExitSaved>;
 }) {
   const rows = setup.accounts[kind].filter((a) => a.from_xero);
   const [ticked, setTicked] = useState<Set<string>>(
@@ -1613,7 +1868,9 @@ function XeroAccountsScreen({
           </p>
         </div>
       </div>
-      {nav(save, saving)}
+      {nav(save, saving, async () =>
+        rows.length > 0 && ticked.size === 0 ? null : onExitSave([...ticked]),
+      )}
     </div>
   );
 }

@@ -68,8 +68,10 @@ pettycashv3.entities WHERE id = '<id>';` — one row, `status = 'onboarding'`, t
 - [ ] _Add later_ at the foot of the page moves on without sending an invite.
 - [ ] Sending an invite with a non-ASCII email surfaces Flask's 400 through the wizard
       unchanged (this call proxies to Flask).
-- [ ] Cancelling a pending invite removes it from the visible list (the row is revoked, not
-      deleted, on the backend — only the UI effect is checkable here).
+- [ ] A pending invite's X first asks "Cancel the invitation to <email>?" (_Cancel invitation_ /
+      _Go back_; Escape and the backdrop go back) at 360 and 1440px, the long email wrapping in
+      the title. _Go back_ keeps it; _Cancel invitation_ removes it from the visible list (the row
+      is revoked, not deleted, on the backend — only the UI effect is checkable here).
 - [ ] **DB:** `SELECT status FROM pettycashv3.invitation WHERE entity_id = '<id>' ORDER BY
 created_at DESC;` — a cancelled row reads `revoked`, still present (never deleted); a
       failed send (toast shown) leaves no new row at all.
@@ -103,6 +105,24 @@ created_at DESC;` — a cancelled row reads `revoked`, still present (never dele
 last_connected_at FROM pettycashv3.entities WHERE id = '<id>';` — connect sets all
       four non-null; disconnect clears `xero_org_id`/`xero_tenant_name` but leaves `status
 = 'onboarding'` (disconnect never touches `status` outside the step-9 reset flow).
+
+## Step 4 — Expense accounts, Minty on its own ([wizard.md](wizard.md), 4.4)
+
+- [ ] At 360, 768 and 1440px: tick, untick, _Edit_, _Add another_, _Auto Fill_ and _Revert_
+      send nothing (DevTools → Network: no POST, PATCH, DELETE or PUT; _Auto Fill_ is one GET
+      `/accounting/autofill`). An unticked account stays on screen, unticked.
+- [ ] _Remove_ on an account the company has asks "Remove <name>?" (_Remove_ / _Go back_);
+      a row added on this screen goes without asking.
+- [ ] Save & Next sends ONE `PUT /accounting/accounts` and moves on; with nothing changed it
+      sends nothing. Reload the step: the list is as saved.
+- [ ] Leave out an account Petty Cash Settings uses (e.g. the discrepancy account), then Save &
+      Next: the sentence "<name> is already used in your records or Petty Cash Settings, so it
+      can't be deleted." shows above Save & Next, the list stays as held, and nothing changed
+      in the database (every other change in that save is undone too).
+- [ ] Change the list, wait 2 s and reload: "You have unsaved changes from HH:MM." - Restore
+      puts the held list back. Save & Exit saves the held list before leaving.
+- [ ] **DB:** `SELECT code, name, source FROM pettycashv3.account_info WHERE entity_id = '<id>'
+AND record_status = 'active' ORDER BY code;` matches the list after Save & Next.
 
 ## Steps 5–7 — Petty Cash Settings
 

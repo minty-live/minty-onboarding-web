@@ -753,6 +753,7 @@ textarea {
   font-weight: 700;
   line-height: 1.25;
   color: var(--color-text-primary);
+  overflow-wrap: anywhere; /* a long email in the title wraps inside its column */
 }
 .mw-dialog-art {
   display: block;
@@ -826,6 +827,15 @@ textarea {
 }
 .mw-dialog-btn.is-orange:hover {
   opacity: 0.9;
+}
+/* Red to take something away (cancel an invitation, remove an account): ConfirmDialog's `red`. */
+.mw-dialog-btn.is-red {
+  background: var(--color-action-danger);
+  color: var(--color-action-on-danger);
+  font-weight: 700;
+}
+.mw-dialog-btn.is-red:hover {
+  background: var(--color-action-danger-hover);
 }
 .mw-dialog-btn.is-grey {
   background: var(--color-surface-raised);
@@ -2117,6 +2127,8 @@ textarea {
   border: 0;
   color: var(--muted);
   padding: 6px;
+  min-width: 44px; /* a 44px target (it asks before cancelling, 2026-11-20) */
+  min-height: 44px;
   border-radius: 8px;
   cursor: pointer;
   display: inline-flex;

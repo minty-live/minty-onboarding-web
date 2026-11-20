@@ -8,11 +8,12 @@
  * the step's own Save & Next (or its own save buttons) does.
  *
  * The draft's value is `{ state, locals }`:
- * - `state` - the part of `WizardState` the step edits (`draftSlice`). Steps 3 and 4 save each
- *   change as it is made (an invitation, an answer), so they keep only their step-local inputs.
+ * - `state` - the part of `WizardState` the step edits (`draftSlice`). Steps 3 and 4 keep nothing
+ *   there: step 3 sends each invitation as it is made, and step 4 holds its picks in its screens.
  * - `locals` - inputs a step holds in its own React state until its save (the invite form, step 4's
- *   screen picks and account form, a new sales-method name), registered with `useStepDraftField`
- *   and kept only while they differ from what they opened with.
+ *   screen picks, its expense list's held ticks, edits, adds and removes, and its account form, a
+ *   new sales-method name), registered with `useStepDraftField` and kept only while they differ
+ *   from what they opened with.
  *
  * `basedOn` is `fingerprint(normalizeSlice(step, server slice))`: the step's values as the server
  * last gave or took them (GET /state on resume, the step's loads, each successful save). A draft
@@ -83,7 +84,7 @@ export function draftSlice(step: number, s: WizardState): StepSlice {
     case 8:
       return { billCodes: s.bills.billCodes };
     default:
-      // 3 (invitations) and 4 (Accounting Setup) save each change as it is made.
+      // 3 (invitations, each sent as it is made) and 4 (Accounting Setup, its screens' own state).
       return {};
   }
 }

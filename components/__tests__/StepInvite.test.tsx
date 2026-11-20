@@ -65,3 +65,69 @@ describe("StepInvite arrival prompt", () => {
     expect(next).not.toHaveBeenCalled();
   });
 });
+
+// A sent invitation's X asks first (plan item 6, 2026-11-20): "Cancel the invitation to <email>?"
+// - Cancel invitation sends POST /invite/cancel; Go back, Escape and the backdrop change nothing.
+describe("cancelling a sent invitation", () => {
+  const SENT = {
+    id: "inv-1",
+    first: "Ada",
+    last: "Lee",
+    email: "ada@example.com",
+    role: "cashier",
+  };
+
+  function renderWithInvite() {
+    const cancelInvite = vi.fn(async () => ({ ok: true as const }));
+    const set = vi.fn();
+    render(
+      <ToastProvider>
+        <StepInvite
+          state={{ invites: [SENT] } as unknown as StepProps["state"]}
+          set={set}
+          next={vi.fn()}
+          back={vi.fn()}
+          submitInvite={vi.fn()}
+          cancelInvite={cancelInvite}
+          resendInvite={vi.fn()}
+          saveAndExit={vi.fn()}
+        />
+      </ToastProvider>,
+    );
+    return { cancelInvite, set };
+  }
+  const question = () =>
+    screen.queryByRole("dialog", { name: "Cancel the invitation to ada@example.com?" });
+
+  it("asks before cancelling, and Cancel invitation cancels it", async () => {
+    const { cancelInvite, set } = renderWithInvite();
+    await userEvent.click(screen.getByRole("button", { name: "Ok" })); // the arrival prompt
+    await userEvent.click(screen.getByRole("button", { name: "Remove" }));
+    expect(question()).toBeInTheDocument();
+    expect(cancelInvite).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole("button", { name: "Cancel invitation" }));
+    expect(cancelInvite).toHaveBeenCalledWith("inv-1");
+    expect(set).toHaveBeenCalledWith({ invites: [] });
+    expect(question()).not.toBeInTheDocument();
+  });
+
+  it("Go back keeps the invitation", async () => {
+    const { cancelInvite, set } = renderWithInvite();
+    await userEvent.click(screen.getByRole("button", { name: "Ok" }));
+    await userEvent.click(screen.getByRole("button", { name: "Remove" }));
+    await userEvent.click(screen.getByRole("button", { name: "Go back" }));
+    expect(question()).not.toBeInTheDocument();
+    expect(cancelInvite).not.toHaveBeenCalled();
+    expect(set).not.toHaveBeenCalled();
+  });
+
+  it("Escape keeps the invitation", async () => {
+    const { cancelInvite } = renderWithInvite();
+    await userEvent.click(screen.getByRole("button", { name: "Ok" }));
+    await userEvent.click(screen.getByRole("button", { name: "Remove" }));
+    await userEvent.keyboard("{Escape}");
+    expect(question()).not.toBeInTheDocument();
+    expect(cancelInvite).not.toHaveBeenCalled();
+  });
+});

@@ -10,6 +10,7 @@ import PhoneField, { phoneFieldError } from "./PhoneField";
 import MintyDatePicker from "./MintyDatePicker";
 import Confetti, { type BurstOrigin } from "./Confetti";
 import BillingSheet from "./BillingSheet";
+import { ConfirmDialog } from "./ConfirmDialog";
 import { ModalFrame } from "./ModalFrame";
 import { useToast } from "./Toast";
 import { fetchCountries, fetchCurrencies } from "@/lib/refData";
@@ -2166,16 +2167,27 @@ export function StepInvite({
     setForm({ first: "", last: "", email: "", role: "" });
     setEmailTouched(false);
   };
+  // A sent invitation is cancelled only once the person says so (plan item 6, 2026-11-20): its X
+  // asks "Cancel the invitation to <email>?" first. A row never sent goes at once.
+  const [cancelling, setCancelling] = useState<number | null>(null);
+  const [cancelBusy, setCancelBusy] = useState(false);
   const removeRow = async (i: number) => {
     const target = list[i];
     if (target?.id) {
+      setCancelBusy(true);
       const result = await cancelInvite(target.id);
+      setCancelBusy(false);
+      setCancelling(null);
       if (!result.ok) {
         notify.error(result.error);
         return;
       }
     }
     set({ invites: list.filter((_, idx) => idx !== i) });
+  };
+  const askRemoveRow = (i: number) => {
+    if (list[i]?.id) setCancelling(i);
+    else void removeRow(i);
   };
   // A row being resent, so its button shows the wait and cannot be pressed twice.
   const [resending, setResending] = useState<string | null>(null);
@@ -2348,7 +2360,7 @@ export function StepInvite({
                   <button
                     type="button"
                     className="icon-x"
-                    onClick={() => removeRow(i)}
+                    onClick={() => askRemoveRow(i)}
                     aria-label="Remove"
                   >
                     <Icon.Close />
@@ -2379,6 +2391,21 @@ export function StepInvite({
           </button>
         </div>
       </div>
+
+      {cancelling !== null && list[cancelling] && (
+        <ConfirmDialog
+          title={`Cancel the invitation to ${list[cancelling].email}?`}
+          confirmLabel="Cancel invitation"
+          confirmTone="red"
+          busy={cancelBusy}
+          onConfirm={() => void removeRow(cancelling)}
+          onBack={() => setCancelling(null)}
+        >
+          <p className="mw-dialog-body">
+            The link in their email stops working. You can invite them again later.
+          </p>
+        </ConfirmDialog>
+      )}
 
       {accountantPrompt && (
         <ModalFrame

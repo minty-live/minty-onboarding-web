@@ -152,6 +152,22 @@ export const accountingApi = {
       "DELETE",
       `/accounts/${encodeURIComponent(accountId)}?${q(entityId)}`,
     ),
+  /** 4.3 / 4.4's Save & Next (2026-11-20): the list as the screen holds it, in one call - the
+   * Auto Fill rows ticked, and the company's own accounts to keep (with their id) or add (without).
+   * Every own account left out is taken out; a used one refuses the whole save. Answers the step. */
+  saveAccounts: (
+    token: string,
+    entityId: string,
+    kind: AccountKind,
+    templateIds: string[],
+    accounts: (AccountInput & { id?: string })[],
+  ) =>
+    call<AccountingSetup>(token, "PUT", "/accounts", {
+      entity_id: entityId,
+      kind,
+      template_ids: templateIds,
+      accounts,
+    }),
   /** X2, X3: exactly these of the Xero chart's sales or expense accounts are Minty's. */
   xeroTicks: (token: string, entityId: string, kind: AccountKind, accountIds: string[]) =>
     call<AccountingSetup>(token, "POST", "/xero-accounts", {

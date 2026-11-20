@@ -4,16 +4,19 @@
 // expense accounts. The business type brings the sales accounts and daily closing's defaults; Petty
 // Cash Settings maps a Xero company's daily-closing accounts.
 
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { StepAccountingSetup } from "../steps/AccountingSetup";
 import { ToastProvider } from "../Toast";
 import { initialState } from "../../lib/wizardSteps";
+import { StepDraftContext, type StepDraftRegistry } from "../../lib/stepDraft";
 import type { AccountingForm, StepProps, WizardState } from "../../lib/types";
 
 type Call = { url: string; method: string; body: Record<string, unknown> | null };
 let calls: Call[];
 let answers: Record<string, unknown>;
+/** "METHOD path" -> a refusal the fake API answers instead. */
+let refusals: Record<string, { status: number; body: unknown }>;
 let expenseRows: ReturnType<typeof account>[];
 let connected: boolean;
 let bankAllSales: boolean;
@@ -70,6 +73,7 @@ function setupAnswer() {
 beforeEach(() => {
   calls = [];
   answers = {};
+  refusals = {};
   expenseRows = [];
   connected = false;
   bankAllSales = false;
@@ -82,10 +86,18 @@ beforeEach(() => {
         method: init?.method || "GET",
         body: init?.body ? JSON.parse(String(init.body)) : null,
       });
-      // the whole step: the read, and the Xero ticks and refresh, which answer it again
-      const body = /\/accounting(\/xero-accounts|\/xero-refresh)?$/.test(path)
-        ? setupAnswer()
-        : (answers[path] ?? {});
+      // the whole step: the read, the Xero ticks and refresh, and 4.4's Save & Next (PUT
+      // /accounting/accounts), which answer it again - unless a test refuses that call
+      const key = `${init?.method || "GET"} ${path}`;
+      if (refusals[key])
+        return new Response(JSON.stringify(refusals[key].body), {
+          status: refusals[key].status,
+          headers: { "Content-Type": "application/json" },
+        });
+      const whole =
+        /\/accounting(\/xero-accounts|\/xero-refresh)?$/.test(path) ||
+        key === "PUT /api/onboarding/accounting/accounts";
+      const body = whole ? setupAnswer() : (answers[path] ?? {});
       return new Response(JSON.stringify(body), {
         status: 200,
         headers: { "Content-Type": "application/json" },
@@ -99,6 +111,8 @@ function renderStep(
   accounting: AccountingForm,
   modules: WizardState["modules"] = ["pettyCash"],
   xero: WizardState["xero"] = { connected: false, org: "" },
+  /** The open step's draft binding (components/StepDraft.tsx); none = the step on its own. */
+  drafts: StepDraftRegistry | null = null,
 ) {
   let state: WizardState = {
     ...initialState(),
@@ -108,31 +122,34 @@ function renderStep(
     xero,
   };
   const next = vi.fn();
+  const saveAndExit = vi.fn();
   const set: StepProps["set"] = (patch) => {
     state = { ...state, ...(typeof patch === "function" ? patch(state) : patch) };
   };
   const view = render(
-    <ToastProvider>
-      <StepAccountingSetup
-        state={state}
-        set={set}
-        next={next}
-        back={vi.fn()}
-        token="t"
-        saveAndExit={vi.fn()}
-        connectXero={vi.fn()}
-        disconnectXero={vi.fn()}
-        xeroMismatch=""
-        clearXeroMismatch={vi.fn()}
-        xeroChoose={false}
-        clearXeroChoose={vi.fn()}
-        xeroConflict={null}
-        clearXeroConflict={vi.fn()}
-        releaseXeroConflict={vi.fn()}
-      />
-    </ToastProvider>,
+    <StepDraftContext.Provider value={drafts}>
+      <ToastProvider>
+        <StepAccountingSetup
+          state={state}
+          set={set}
+          next={next}
+          back={vi.fn()}
+          token="t"
+          saveAndExit={saveAndExit}
+          connectXero={vi.fn()}
+          disconnectXero={vi.fn()}
+          xeroMismatch=""
+          clearXeroMismatch={vi.fn()}
+          xeroChoose={false}
+          clearXeroChoose={vi.fn()}
+          xeroConflict={null}
+          clearXeroConflict={vi.fn()}
+          releaseXeroConflict={vi.fn()}
+        />
+      </ToastProvider>
+    </StepDraftContext.Provider>,
   );
-  return { next, view, getState: () => state };
+  return { next, saveAndExit, view, getState: () => state };
 }
 
 /** A retail shop that has answered 4.2 and the sales accounts screen: it opens on 4.4. */
@@ -424,29 +441,13 @@ describe("4.4 Auto Fill and Revert (owner, 2026-11-11)", () => {
     expect(screen.getByRole("button", { name: /Revert/ })).toHaveAttribute("aria-pressed", "true");
   });
 
-  it("Revert leaves the list unfilled: the suggestions are not fetched back", async () => {
+  it("Revert is held: the Auto Fill rows come off, nothing is sent, the suggestions stay away", async () => {
     const rent = {
       ...account("s1", "6000", "Rent", "expense"),
       is_system: false,
       auto_filled: true,
     };
     expenseRows = [cashOverShort, rent];
-    let reverted = false;
-    // the API takes Rent out and keeps Cash Over / Short (daily closing uses it)
-    Object.defineProperty(answers, "/api/onboarding/accounting/autofill/revert", {
-      get: () => {
-        expenseRows = [cashOverShort];
-        reverted = true;
-        return { removed: 1, kept: [cashOverShort] };
-      },
-    });
-    // the list's read after Revert takes a moment, as the real API's does
-    const instant = vi.mocked(fetch).getMockImplementation()!;
-    vi.mocked(fetch).mockImplementation(async (url, init) => {
-      if (reverted && new URL(String(url)).pathname.endsWith("/accounting"))
-        await new Promise((r) => setTimeout(r, 50));
-      return instant(url, init);
-    });
     answers["/api/onboarding/accounting/autofill"] = {
       based_on: "retail",
       options: [
@@ -466,12 +467,20 @@ describe("4.4 Auto Fill and Revert (owner, 2026-11-11)", () => {
     const button = await screen.findByRole("button", { name: /Auto Fill/ });
     await waitFor(() => expect(button).toHaveAttribute("aria-pressed", "false"));
     expect(screen.queryByText("Rent")).toBeNull();
-    const revertAt = calls.findIndex((c) => c.url.endsWith("/autofill/revert"));
+    expect(screen.getByText("Cash Over / Short")).toBeInTheDocument();
+    expect(writes()).toEqual([]);
+    const revertAt = calls.length;
+    await new Promise((r) => setTimeout(r, 20));
     expect(
       calls.slice(revertAt).some((c) => c.method === "GET" && c.url.endsWith("/autofill")),
     ).toBe(false);
   });
 });
+
+/** Every call that would change the company: anything but a read. */
+const writes = () => calls.filter((c) => c.method !== "GET");
+const putCalls = () =>
+  calls.filter((c) => c.method === "PUT" && c.url.endsWith("/accounting/accounts"));
 
 describe("4.4 an expense row", () => {
   it("shows its code and description, ticked, with Edit and Remove in its menu", async () => {
@@ -490,14 +499,240 @@ describe("4.4 an expense row", () => {
     fireEvent.click(more);
     expect(more).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("menuitem", { name: "Edit" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Remove" })).toBeInTheDocument();
     fireEvent.keyDown(document, { key: "Escape" });
     expect(screen.queryByRole("menu")).toBeNull();
+  });
 
-    fireEvent.click(more);
+  it("Remove on an account the company has asks first, and only Save & Next takes it out", async () => {
+    expenseRows = [
+      { ...account("s1", "420", "Rent", "expense"), is_system: false },
+      { ...account("s2", "421", "Repairs", "expense"), is_system: false },
+    ];
+    const { next } = renderStep({ ...RETAIL_CHOSEN });
+    fireEvent.click(await screen.findByRole("button", { name: "More for Rent" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Remove" }));
-    await waitFor(() =>
-      expect(calls.some((c) => c.method === "DELETE" && c.url.endsWith("/accounts/s1"))).toBe(true),
+    const question = screen.getByRole("dialog", { name: "Remove Rent?" });
+    fireEvent.click(within(question).getByRole("button", { name: "Go back" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByText("Rent")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "More for Rent" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Remove" }));
+    fireEvent.click(
+      within(screen.getByRole("dialog", { name: "Remove Rent?" })).getByRole("button", {
+        name: "Remove",
+      }),
     );
+    expect(screen.queryByText("Rent")).toBeNull();
+    expect(writes()).toEqual([]);
+
+    saveAndNext();
+    await waitFor(() => expect(next).toHaveBeenCalledTimes(1));
+    expect(putCalls()).toHaveLength(1);
+    expect(putCalls()[0].body).toEqual({
+      entity_id: "e-1",
+      kind: "expense",
+      template_ids: [],
+      accounts: [{ id: "s2", code: "421", name: "Repairs", type: "expense", description: "" }],
+    });
+    expect(writes()).toHaveLength(1);
+  });
+
+  it("Remove on a row added on this screen takes it away without asking", async () => {
+    renderStep({ ...RETAIL_CHOSEN });
+    fireEvent.click(await screen.findByRole("button", { name: /Add another category/ }));
+    fireEvent.change(screen.getByLabelText(/^Name/), { target: { value: "Staff meals" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+    fireEvent.click(await screen.findByRole("button", { name: "More for Staff meals" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Remove" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByText("Staff meals")).toBeNull();
+    expect(writes()).toEqual([]);
+  });
+});
+
+// Plan item 4 (2026-11-20): the expense list holds every change until Save & Next, as X3 does, and
+// sends ONE PUT /accounting/accounts with the list as the screen holds it.
+describe("4.4 changes wait for Save & Next", () => {
+  const own = (id: string, code: string, name: string, extra: Record<string, unknown> = {}) => ({
+    ...account(id, code, name, "expense"),
+    is_system: false,
+    source: "user" as const,
+    ...extra,
+  });
+
+  it("ticks, edits and adds send nothing until Save & Next, then one PUT with the list", async () => {
+    expenseRows = [
+      own("u1", "499", "Sundries", { description: "Odds and ends" }),
+      own("u2", "498", "Repairs"),
+    ];
+    const { next } = renderStep({ ...RETAIL_CHOSEN });
+    // untick Repairs: it stays on screen, unticked, until saved
+    fireEvent.click(await screen.findByRole("checkbox", { name: /Repairs/ }));
+    expect(screen.getByRole("checkbox", { name: /Repairs/ })).not.toBeChecked();
+
+    // edit Sundries
+    fireEvent.click(screen.getByRole("button", { name: "More for Sundries" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Edit" }));
+    fireEvent.change(screen.getByLabelText(/^Name/), { target: { value: "Sundries and spares" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(await screen.findByText("Sundries and spares")).toBeInTheDocument();
+
+    // add one of its own
+    fireEvent.click(screen.getByRole("button", { name: /Add another category/ }));
+    fireEvent.change(screen.getByLabelText(/^Code/), { target: { value: "496" } });
+    fireEvent.change(screen.getByLabelText(/^Name/), { target: { value: "Staff meals" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+    expect(await screen.findByRole("checkbox", { name: /Staff meals/ })).toBeChecked();
+
+    expect(writes()).toEqual([]);
+    saveAndNext();
+    await waitFor(() => expect(next).toHaveBeenCalledTimes(1));
+    expect(writes()).toHaveLength(1);
+    expect(putCalls()[0].body).toEqual({
+      entity_id: "e-1",
+      kind: "expense",
+      template_ids: [],
+      accounts: [
+        {
+          id: "u1",
+          code: "499",
+          name: "Sundries and spares",
+          type: "expense",
+          description: "Odds and ends",
+        },
+        { code: "496", name: "Staff meals", type: "expense", description: "" },
+      ],
+    });
+  });
+
+  it("an add whose code the list already has is refused on the form, before anything is sent", async () => {
+    expenseRows = [own("u1", "499", "Sundries")];
+    renderStep({ ...RETAIL_CHOSEN });
+    fireEvent.click(await screen.findByRole("button", { name: /Add another category/ }));
+    fireEvent.change(screen.getByLabelText(/^Code/), { target: { value: "499" } });
+    fireEvent.change(screen.getByLabelText(/^Name/), { target: { value: "Staff meals" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+    expect(
+      (await screen.findAllByText("The code 499 is already used by Sundries. Choose another code."))
+        .length,
+    ).toBeGreaterThan(0);
+    expect(screen.queryByRole("checkbox", { name: /Staff meals/ })).toBeNull();
+    expect(writes()).toEqual([]);
+  });
+
+  it("Auto Fill only reads the suggestions; the ticked ones are sent with Save & Next", async () => {
+    answers["/api/onboarding/accounting/autofill"] = {
+      based_on: "retail",
+      options: [
+        {
+          template_id: "t1",
+          code: "6003",
+          name: "Rent",
+          type: "expense",
+          ticked: true,
+          added: false,
+        },
+        {
+          template_id: "t2",
+          code: "6007",
+          name: "Repairs",
+          type: "expense",
+          ticked: false,
+          added: false,
+        },
+      ],
+    };
+    const { next } = renderStep({ ...RETAIL_CHOSEN });
+    fireEvent.click(await screen.findByRole("button", { name: /Auto Fill/ }));
+    expect(await screen.findByRole("checkbox", { name: /Rent/ })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /Repairs/ })).not.toBeChecked();
+    expect(screen.getByRole("button", { name: /Revert/ })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("checkbox", { name: /Repairs/ }));
+    expect(writes()).toEqual([]);
+
+    saveAndNext();
+    await waitFor(() => expect(next).toHaveBeenCalledTimes(1));
+    expect(putCalls()[0].body).toEqual({
+      entity_id: "e-1",
+      kind: "expense",
+      template_ids: ["t1", "t2"],
+      accounts: [],
+    });
+  });
+
+  it("a refused save keeps the held list and says why", async () => {
+    expenseRows = [own("u1", "499", "Sundries"), own("u2", "498", "Repairs")];
+    refusals["PUT /api/onboarding/accounting/accounts"] = {
+      status: 409,
+      body: {
+        error:
+          "Repairs is already used in your records or Petty Cash Settings, so it can't be deleted.",
+      },
+    };
+    const { next } = renderStep({ ...RETAIL_CHOSEN });
+    fireEvent.click(await screen.findByRole("checkbox", { name: /Repairs/ }));
+    saveAndNext();
+    expect(
+      await screen.findByText(
+        "Repairs is already used in your records or Petty Cash Settings, so it can't be deleted.",
+      ),
+    ).toBeInTheDocument();
+    expect(next).not.toHaveBeenCalled();
+    expect(screen.getByRole("checkbox", { name: /Repairs/ })).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /Sundries/ })).toBeChecked();
+  });
+
+  it("Save & Exit saves the held list first", async () => {
+    expenseRows = [own("u1", "499", "Sundries"), own("u2", "498", "Repairs")];
+    const { saveAndExit } = renderStep({ ...RETAIL_CHOSEN });
+    fireEvent.click(await screen.findByRole("checkbox", { name: /Repairs/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Save & Exit" }));
+    await waitFor(() => expect(saveAndExit).toHaveBeenCalledTimes(1));
+    const submitFn = saveAndExit.mock.calls[0][0] as () => Promise<{ ok: boolean }>;
+    expect(await submitFn()).toEqual({ ok: true });
+    expect(putCalls()).toHaveLength(1);
+    expect(putCalls()[0].body).toMatchObject({ accounts: [{ id: "u1" }] });
+  });
+
+  it("nothing changed: Save & Next moves on without a call", async () => {
+    expenseRows = [own("u1", "499", "Sundries")];
+    const { next } = renderStep({ ...RETAIL_CHOSEN });
+    await screen.findByText("Sundries");
+    saveAndNext();
+    await waitFor(() => expect(next).toHaveBeenCalledTimes(1));
+    expect(writes()).toEqual([]);
+  });
+
+  it("the step's auto-saved draft keeps the held list and Restore puts it back", async () => {
+    expenseRows = [own("u1", "499", "Sundries"), own("u2", "498", "Repairs")];
+    const reported: Record<string, unknown> = {};
+    const setters: Record<string, (v: unknown) => void> = {};
+    const registry: StepDraftRegistry = {
+      attach(name, put) {
+        setters[name] = put;
+        return () => {
+          delete setters[name];
+        };
+      },
+      report(name, value) {
+        if (value === undefined) delete reported[name];
+        else reported[name] = value;
+      },
+    };
+    const first = renderStep({ ...RETAIL_CHOSEN }, undefined, undefined, registry);
+    fireEvent.click(await screen.findByRole("checkbox", { name: /Repairs/ }));
+    await waitFor(() => expect(reported["acs.held.expense"]).toBeTruthy());
+    const kept = reported["acs.held.expense"];
+    first.view.unmount();
+
+    // the step opens again (a reload): Restore hands the kept list back
+    renderStep({ ...RETAIL_CHOSEN }, undefined, undefined, registry);
+    expect(await screen.findByRole("checkbox", { name: /Repairs/ })).toBeChecked();
+    act(() => setters["acs.held.expense"](kept));
+    expect(screen.getByRole("checkbox", { name: /Repairs/ })).not.toBeChecked();
+    expect(writes()).toEqual([]);
   });
 });
 
@@ -562,5 +797,100 @@ describe("X3 the Xero expense accounts (Figma 348:1949)", () => {
     });
     expect(screen.getAllByRole("checkbox")).toHaveLength(1);
     expect(screen.getByRole("checkbox", { name: /Cost 11/ })).toBeInTheDocument();
+  });
+});
+
+// Save & Exit on every step-4 screen saves that screen's answer first (2026-11-20: it used to
+// save nothing but the place to come back to, dropping a pick made on the open screen).
+describe("Save & Exit saves the open screen's answer", () => {
+  const exit = async (saveAndExit: ReturnType<typeof vi.fn>) => {
+    fireEvent.click(screen.getByRole("button", { name: "Save & Exit" }));
+    await waitFor(() => expect(saveAndExit).toHaveBeenCalledTimes(1));
+    return saveAndExit.mock.calls[0][0] as (() => Promise<{ ok: boolean } | null>) | undefined;
+  };
+
+  it("4.1: the picked way of working", async () => {
+    const { saveAndExit, next } = renderStep({
+      mode: null,
+      businessType: null,
+      usesSalesCash: null,
+    });
+    fireEvent.click(screen.getByRole("radio", { name: /Use Minty independently/ }));
+    const submit = await exit(saveAndExit);
+    expect(await submit!()).toEqual({ ok: true });
+    expect(calls[0]).toMatchObject({
+      url: "/api/onboarding/accounting/mode",
+      body: { entity_id: "e-1", mode: "minty" },
+    });
+    expect(next).not.toHaveBeenCalled();
+    expect(screen.getByText("How would you like Minty to work?")).toBeInTheDocument();
+  });
+
+  it("4.1 with nothing picked saves nothing", async () => {
+    const { saveAndExit } = renderStep({ mode: null, businessType: null, usesSalesCash: null });
+    const submit = await exit(saveAndExit);
+    expect(submit ? await submit() : null).toBeNull();
+    expect(calls).toEqual([]);
+  });
+
+  it("4.2: the business type", async () => {
+    const { saveAndExit } = renderStep({ mode: "minty", businessType: null, usesSalesCash: null });
+    fireEvent.click(screen.getByRole("radio", { name: /None of these/ }));
+    const submit = await exit(saveAndExit);
+    expect(await submit!()).toEqual({ ok: true });
+    expect(calls[0]).toMatchObject({
+      url: "/api/onboarding/accounting/business",
+      body: { entity_id: "e-1", business_type: null, uses_sales_cash: true },
+    });
+    expect(screen.getByText("What best describes your business?")).toBeInTheDocument();
+  });
+
+  it("the sales accounts' ticks; none ticked saves nothing", async () => {
+    const { saveAndExit } = renderStep({
+      mode: "minty",
+      businessType: "retail",
+      usesSalesCash: true,
+    });
+    fireEvent.click(screen.getByRole("checkbox", { name: /Sales - Delivery/ }));
+    const submit = await exit(saveAndExit);
+    expect(await submit!()).toEqual({ ok: true });
+    expect(calls.find((c) => c.method === "POST")).toMatchObject({
+      url: "/api/onboarding/accounting/sales-accounts",
+      body: { entity_id: "e-1", cash: true, electronic: true, delivery: true },
+    });
+    expect(screen.getByText("Your sales accounts")).toBeInTheDocument();
+  });
+
+  it("the Xero expense accounts' ticks", async () => {
+    connected = true;
+    expenseRows = [
+      {
+        ...account("x1", "400", "Advertising", "expense"),
+        type_label: "Expense",
+        source: "xero",
+        from_xero: true,
+        used: true,
+      },
+      {
+        ...account("x2", "469", "Rent", "expense"),
+        type_label: "Expense",
+        source: "xero",
+        from_xero: true,
+        used: false,
+      },
+    ];
+    const { saveAndExit, next } = renderStep(
+      { mode: "xero", businessType: null, usesSalesCash: null },
+      ["pettyCash"],
+      { connected: true, org: "Demo" },
+    );
+    fireEvent.click(await screen.findByRole("button", { name: /Save & Next/ }));
+    await screen.findByText("Which expense accounts should Minty use?");
+    fireEvent.click(screen.getByRole("checkbox", { name: /Rent/ }));
+    const submit = await exit(saveAndExit);
+    expect(await submit!()).toEqual({ ok: true });
+    const save = calls.find((c) => c.url.endsWith("/xero-accounts"));
+    expect(save?.body).toEqual({ entity_id: "e-1", kind: "expense", account_ids: ["x1", "x2"] });
+    expect(next).not.toHaveBeenCalled();
   });
 });
