@@ -237,6 +237,52 @@ Delivery list beside its Non-cash list.
   and using it as the landing step once jumped people straight to _Connect to
   Accounting_. Never make the two orderings one.
 - `fresh=1` starts a brand-new company even when an unfinished one exists.
+- **What is typed on the open step is an auto-saved draft (2026-11-20)** - see below. The
+  `minty_onboarding_session` blob is unchanged: it stays the `/state`-failure fallback and the
+  Xero round-trip's stash, and a plain reload still ignores it when `/state` answers.
+
+### Auto-saved drafts (`@minty/shared/drafts`, the owner's decisions doc L1)
+
+Owner's choices: kept **in this browser only**, **2 seconds** after the last change, and **asked
+first**. The draft never writes the company - only the step's own Save & Next (or its own save
+buttons) do.
+
+- **One draft per step:** form `onb.step`, record = the open step (1-8; All Set has none),
+  shape 1, keyed by the person and the company (`draftScopeFromToken(token)`; before step 1 is
+  saved there is no company, and the key says `-`). Value `{ state, locals }`
+  (`lib/stepDraft.ts`): `state` is the part of the wizard state the step edits (`draftSlice`:
+  step 1's fields, step 2's modules, step 5's methods and opening balance, step 6's mapping and
+  ticks, step 7's contacts, step 8's ticks); steps 3 and 4 save each change as it is made, so
+  they keep only their step-local inputs. `locals` are inputs a step holds in its own React
+  state until its save, registered with `useStepDraftField(name, value, set)` - the invite form,
+  step 4's picks (4.1's mode, 4.2's business type, the sales-account ticks, X3's ticks), its
+  account form and which form is open, and a sales method typed but not added - kept only while
+  they differ from what they opened with.
+- **`basedOn`** is `fingerprint` of the step's values as the server last gave or took them
+  (`serverSlices` in `OnboardingApp`): from `GET /state` on resume (nothing saved before a
+  company exists), from steps 6-8's own reads, and from every successful save. Values are
+  compared as the server holds them (`normalizeSlice`: the phone compact, names and emails
+  trimmed, modules in one order, the balance as a number, step 5's date only beside a balance -
+  it is filled for you and saved only with one). A draft taken against other values is
+  **stale**: shown read-only (Show what I typed), never put back.
+- **Ready** once the resume has settled (or the no-company local restore has run) and, on steps
+  6-8, once the step's own read is in.
+- **The notice** (`DraftNotice`, `components/StepDraft.tsx`) sits at the top of the step:
+  "You have unsaved changes from 10:42." - Restore puts the step's values and its step-local
+  inputs back (an input not on screen yet, such as step 4's account form, gets its value when it
+  opens), Discard removes the draft. A draft holding exactly what is on screen (Back and forth in
+  one visit, or the pre-company copy the local session restores) is taken quietly. This app loads
+  no icon font, so `app/globals.css` hides the notice's glyph (its ligature would print
+  "history").
+- **Leaving a step** (Back, the stepper) unmounts its binding, which writes what was typed in the
+  last 2 seconds under that step's key; a hidden page (`pagehide`) does the same.
+- **Removed** when the step completes (Save & Next calls `next`, which clears it; Save & Exit
+  clears it when its save succeeded), at finish (every step's, on a successful finalize), on
+  Discard, after 7 days, and on an explicit sign-out (`sidebarHost.logOut` awaits
+  `clearDraftsForUser`, settled within 500 ms, before it forgets the token). The 60-minute
+  expiry and the 401 relaunch (`lib/onboardingFetch.ts`) keep them - surviving those is what
+  they are for.
+- Card details (Stripe's fields) are never kept.
 - **Left unfinished, it is mailed about (2026-10-01).** minty-subscription-api's daily pass sends
   whoever started a company still in setup a "Finish setting up {Company} on Minty" email 1, 3
   and 7 days after its last save, listing the steps from `saved_step` on; its button opens
@@ -325,7 +371,12 @@ words the wizard shows; the app never invents a message for a status it does not
 
 Unit (`npm test`): `lib/__tests__/wizardSteps.test.ts` (with the Minty-on-its-own rules), `components/__tests__/AccountingSetup.test.tsx` (step 4's screens, fetch mocked), `validation.test.ts`, `invites.test.ts`,
 `components/__tests__/Stepper.test.tsx`, `HeaderMenu.test.tsx`, `components/ui/__tests__/sidebarHost.test.ts` and `lib/__tests__/profileApi.test.ts` (the side menu and My Profile), `StepChrome.test.tsx`, `StepInvite.test.tsx` (the arrival prompt's Ok / Skip), `MintySelect.test.tsx` (the type-to-add hint), `pettyCashFields.test.tsx`,
-`MethodList.test.tsx`, `CardBrand.test.tsx` (the two fits and their crops). Browser (`npm run test:e2e`): `e2e/stack.spec.ts` (the two backends
+`MethodList.test.tsx`, `CardBrand.test.tsx` (the two fits and their crops), `components/__tests__/StepDraft.test.tsx` and
+`lib/__tests__/stepDraft.test.ts` (the auto-saved drafts: kept after 2 s, a reload asks, Restore
+with the invite form, Discard, stale, Save & Next clears), the sign-out and 401 cases in
+`sidebarHost.test.ts` and `onboardingFetch.test.ts`. Browser (`npm run test:e2e`): `e2e/drafts.spec.ts` (the draft notice
+and Restore at 360 and 1440px - no credentials and no backend: the API is answered by
+`page.route`), `e2e/stack.spec.ts` (the two backends
 answer), `resume.spec.ts` (the database decides the landing step; `saved_step` and
 `current_step` may disagree; an out-of-range step is refused), `xero.spec.ts`,
 `accounting.spec.ts` (step 4's Minty path at 360px against the real service; it puts the entity back on Xero, which `land()` chooses for any step from 4 on), `walk.spec.ts` (the whole wizard to All Set, Xero faked; the first finalize is forced to a

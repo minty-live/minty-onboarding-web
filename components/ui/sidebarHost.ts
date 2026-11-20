@@ -21,6 +21,7 @@ import { usePathname } from "next/navigation";
 
 import { moduleClaims } from "@minty/shared/auth";
 import { billsUrl, companyPath } from "@minty/shared/companyRef";
+import { clearDraftsForUser, draftScopeFromToken } from "@minty/shared/drafts";
 import { hubHandoffUrl, logoutUrl, mintyEntryUrl } from "@minty/shared/handoff";
 import { setSidebarHost, type SidebarHost, type Viewer } from "@minty/shared/sidebar";
 
@@ -106,11 +107,19 @@ export const sidebarHost: SidebarHost = {
       document.body.style.overflow = previous;
     };
   },
-  /** Flask's `/logout` ends the session everywhere, as the old drawer's Logout did - a POST. */
+  /**
+   * Flask's `/logout` ends the session everywhere, as the old drawer's Logout did - a POST. An
+   * explicit sign-out first removes this person's auto-saved drafts in this browser
+   * (`clearDraftsForUser`, settled within 500 ms), then forgets the token - unlike the 60-minute
+   * expiry and the 401 relaunch (lib/onboardingFetch.ts), which keep them.
+   */
   logOut: (onLeaving) => {
     onLeaving?.();
-    session = null;
-    postNavigate(logoutUrl(FLASK_BASE));
+    const userId = draftScopeFromToken(session?.token)?.userId;
+    void (userId ? clearDraftsForUser(userId) : Promise.resolve()).then(() => {
+      session = null;
+      postNavigate(logoutUrl(FLASK_BASE));
+    });
   },
   currentToken: () => session?.token ?? "",
   loadViewer: async () => session?.viewer ?? null,

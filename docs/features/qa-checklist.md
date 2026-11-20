@@ -173,6 +173,24 @@ pettycashv3.entity_cash_setting WHERE entity_id = '<id>';` — one row per activ
 - [ ] The rail groups steps 5–7 under one _Petty Cash Settings_ label and shows step 8 only
       when Payment Request is enabled; ticks on the rail match `isStepComplete`, not just
       "visited".
+- [ ] **Auto-saved drafts** ([wizard.md](wizard.md), "Auto-saved drafts"), at 360 and 1440px:
+      type on the open step (step 1's name, the invite form on step 3, a sales method not yet
+      added on step 5), wait 2 s and reload - the step shows the saved values under "You have
+      unsaved changes from HH:MM." with Restore and Discard (44px, stacked on a phone); nothing
+      changed until one is pressed. Restore puts the typing back, invite form included; Discard
+      removes it (a second reload shows no notice).
+- [ ] Nothing typed (or typed back to what was saved): no notice after a reload. Step 5's date,
+      filled for you, is not a change on its own.
+- [ ] Save & Next (and a Save & Exit whose save succeeded) leaves no draft behind: re-entering
+      the step shows no notice. A successful finalize removes every step's draft.
+- [ ] Saved again elsewhere (change the step in another tab, then reload the first): the notice
+      says "This was saved again after your unsaved changes …", has no Restore, and Show what I
+      typed lists them read-only.
+- [ ] The menu's Logout removes this person's drafts (DevTools → Local Storage: no
+      `minty:draft:1:<user>:…` keys); a session that expires (60 minutes) or a 401 relaunch keeps
+      them, and the relaunch offers them back.
+- [ ] **DB:** typing alone writes nothing - `onboarding_saved_step` and the step's rows change
+      only on the step's own save.
 - [ ] A company left unfinished does not block resuming later, no matter how long it sits
       (the 1/3/7-day reminder emails are a separate, backend-driven concern — not part of
       this UI checklist).

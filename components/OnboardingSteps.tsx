@@ -28,6 +28,7 @@ import {
 } from "../lib/validation";
 import { useEmailInput } from "../lib/emailInput";
 import { inviteExpiryLabel } from "../lib/invites";
+import { useStepDraftField } from "../lib/stepDraft";
 import { toIsoDate } from "../lib/date";
 import { SaveExitLink, StepNav } from "./steps/StepChrome";
 import { ErrorSummary, type SummaryItem } from "./steps/ErrorSummary";
@@ -2090,6 +2091,8 @@ export function StepInvite({
 >) {
   const list = state.invites.filter((x) => x.email && x.email.includes("@"));
   const [form, setForm] = useState({ first: "", last: "", email: "", role: "" });
+  // Kept in the step's auto-saved draft until it is sent (lib/stepDraft.ts).
+  useStepDraftField("invite", form, setForm);
   const notify = useToast();
   // Rows whose long name/email is expanded (wrapped) instead of truncated.
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});

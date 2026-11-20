@@ -36,7 +36,9 @@ wizard with a fresh token while the sign-in lives and asks the person to sign in
 does not. It used to open a "Your session has timed out ... your connection to Xero has
 expired - Reconnect to Xero" prompt, which blamed Xero for a Minty sign-in. The other wizard
 calls still show their own refusal sentence on a 401 (no automatic hand-off yet). Input on the
-open step is lost (no warning first, owner's S3).
+open step survives as an auto-saved draft in this browser (2026-11-20, [wizard.md](wizard.md),
+"Auto-saved drafts"): the relaunch lands on the step and offers it back. Only an explicit
+sign-out (the menu's Logout) removes the person's drafts, before the token is forgotten.
 
 ## 2. Sign-in left this app (phase 2, 2026-10-05)
 

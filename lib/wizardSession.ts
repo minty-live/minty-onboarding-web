@@ -79,7 +79,7 @@ export function clearTabEntity(): void {
  * without activity) - nothing to do with Xero. accounts-api's company address relaunches the
  * wizard for a company still onboarding with a fresh token while the sign-in lives, and asks the
  * person to sign in first (then relaunches) when it has ended; before there is a company, Minty's
- * front door. Input on the open step is lost (no warning first, owner's S3). */
+ * front door. Input on the open step survives as its auto-saved draft (lib/stepDraft.ts). */
 export function signInAgainUrl(base: string, entityId: string | null | undefined): string {
   return entityId ? `${base}/entity/${encodeURIComponent(entityId)}/modules` : `${base}/`;
 }

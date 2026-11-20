@@ -10,6 +10,7 @@ import { useState, useId, type DragEvent, type ReactNode, type Ref } from "react
 import Icon from "../Icon";
 import MintySelect, { type SelectOption } from "../MintySelect";
 import { UUID_RE } from "../../lib/validation";
+import { useStepDraftField } from "../../lib/stepDraft";
 import type { CurrencyRow } from "../../lib/refData";
 import type { ContactResult } from "../../lib/api";
 import type { CodeSelection } from "../../lib/types";
@@ -74,6 +75,8 @@ export function MethodList({
   account,
 }: MethodListProps) {
   const [name, setName] = useState("");
+  // A name typed but not added yet is kept in the step's auto-saved draft (lib/stepDraft.ts).
+  useStepDraftField(`method:${title}`, name, setName);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [overIdx, setOverIdx] = useState<number | null>(null);
   const inputId = useId();

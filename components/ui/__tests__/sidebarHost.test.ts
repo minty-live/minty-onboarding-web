@@ -115,15 +115,44 @@ describe("postNavigate", () => {
 });
 
 describe("logging out", () => {
-  it("closes the menu, forgets the session and ends it at Flask with a POST", () => {
+  it("closes the menu, forgets the session and ends it at Flask with a POST", async () => {
     session(true);
     const submitted = watchSubmits();
     const leaving = vi.fn();
     sidebarHost.logOut(leaving);
     expect(leaving).toHaveBeenCalledOnce();
+    await vi.waitFor(() => expect(submitted).toHaveLength(1));
     expect(sidebarHost.currentToken()).toBe("");
-    expect(submitted).toHaveLength(1);
     expect(submitted[0].getAttribute("method")).toBe("POST");
     expect(submitted[0].getAttribute("action")).toBe(`${FLASK}/logout`);
+  });
+
+  // The auto-saved drafts (@minty/shared/drafts): an explicit sign-out removes this person's, in
+  // this browser, before the token is forgotten - never another person's.
+  it("removes the person's auto-saved drafts before it forgets the token", async () => {
+    const body = btoa(JSON.stringify({ user_id: "u-1", entity_id: ENTITY })).replace(/=+$/, "");
+    const token = `h.${body}.s`;
+    setSidebarSession({
+      token,
+      entityId: ENTITY,
+      entityName: "Olive & Vine",
+      finished: false,
+      viewer: null,
+    });
+    const mine = `minty:draft:1:u-1:${ENTITY}:onb.step:3`;
+    const theirs = `minty:draft:1:u-2:${ENTITY}:onb.step:3`;
+    window.localStorage.setItem(mine, "{}");
+    window.localStorage.setItem(theirs, "{}");
+    const submitted = watchSubmits();
+
+    sidebarHost.logOut();
+    expect(window.localStorage.getItem(mine)).toBeNull();
+    expect(window.localStorage.getItem(theirs)).not.toBeNull();
+    expect(sidebarHost.currentToken()).toBe(token); // not yet forgotten
+    expect(submitted).toHaveLength(0);
+
+    await vi.waitFor(() => expect(submitted).toHaveLength(1));
+    expect(sidebarHost.currentToken()).toBe("");
+    window.localStorage.clear();
   });
 });

@@ -89,6 +89,16 @@ import type {
 import { inviteRows } from "../lib/invites";
 import { phoneForApi } from "../lib/validation";
 import { useMounted } from "../lib/useMounted";
+import { draftKey, draftScopeFromToken, removeDraft } from "@minty/shared/drafts";
+import { StepDraftBinding } from "./StepDraft";
+import {
+  DRAFT_STEPS,
+  STEP_DRAFT_FORM,
+  draftSlice,
+  isDraftStep,
+  serverSlicesOf,
+  type StepSlice,
+} from "../lib/stepDraft";
 
 /** Petty Cash Settings' side menu: each sub-step's name. */
 const PETTY_SUB_LABEL: Record<number, string> = {
@@ -102,6 +112,17 @@ export default function OnboardingApp() {
   const [current, setCurrent] = useState(1);
   const [state, setState] = useState(initialState);
   const [maxReached, setMaxReached] = useState(1);
+  // The open step's auto-saved draft (lib/stepDraft.ts, components/StepDraft.tsx): each step's
+  // values as the server last gave or took them - from GET /state on resume (nothing saved before
+  // a company exists), the step's own loads and each successful save - so a draft can say whether
+  // it is still based on them. Null until the wizard has settled: no draft is read before.
+  const [serverSlices, setServerSlices] = useState<Record<number, StepSlice> | null>(null);
+  // Steps 6-8 read their values after they open: their drafts wait for those reads.
+  const [stepLoads, setStepLoads] = useState({ accounts: false, petty: false, bills: false });
+  // The open step's draft `clear`, called once its own save has succeeded.
+  const stepDraftClear = useRef<(() => void) | null>(null);
+  const serverSaved = (step: number, part: StepSlice) =>
+    setServerSlices((prev) => (prev ? { ...prev, [step]: { ...prev[step], ...part } } : prev));
   // Logged-in user, passed in by Module 1 on the launch URL after entity creation
   // (e.g. /?first=Dan&last=Smith or /?name=Dan%20Smith). No backend call needed.
   const [user, setUser] = useState<{ first: string; last: string; name: string }>({
@@ -111,6 +132,12 @@ export default function OnboardingApp() {
   });
   // Short-lived JWT from Module 1 used to create the entity on Step 1.
   const [token, setToken] = useState("");
+  // Whose drafts these are: the person in the token, and the company once it exists (before step 1
+  // is saved there is none - the token's own, if it names one).
+  const draftScope = useMemo(() => {
+    const scope = draftScopeFromToken(token);
+    return scope ? { userId: scope.userId, entityId: state.entity.id || scope.entityId } : null;
+  }, [token, state.entity.id]);
   // A launch whose one-time code could not be swapped for the token (gap 4): the sentence to show.
   const [launchRefused, setLaunchRefused] = useState<string | null>(null);
   const [accountOptions, setAccountOptions] = useState<AccountOptions>({
@@ -250,6 +277,8 @@ export default function OnboardingApp() {
 
   const next = () => {
     if (!isStepComplete(current, state)) return;
+    // The step is done (its own save succeeded before this): its draft goes.
+    stepDraftClear.current?.();
     const n = nextActiveId(current);
     setCurrent(n);
     setMaxReached((m) => Math.max(m, n));
@@ -423,6 +452,7 @@ export default function OnboardingApp() {
       };
       stateRef.current = nextState;
       setState(nextState);
+      setServerSlices(serverSlicesOf(nextState));
       // Seed the "last persisted" snapshot from the resumed entity so a revisit
       // to Step 1 that changes nothing stays a no-op (no needless PUT). Uses the
       // same fields nextState landed on, falling back to FE display defaults.
@@ -460,11 +490,13 @@ export default function OnboardingApp() {
 
     // Fallback: server resume unavailable — try this entity's own cached
     // session (per-entity key). (Different/expired sessions are ignored.)
+    let fallback: WizardState = stateRef.current;
     try {
       const saved = JSON.parse(window.localStorage.getItem(sessionKey(entityId)) || "null");
       if (saved && saved.state) {
         const sameEntity = saved.state.entity && saved.state.entity.id === entityId;
         if (sameEntity) {
+          fallback = { ...initialState(), ...saved.state };
           setState(saved.state);
           if (typeof saved.current === "number" && saved.current >= 1) setCurrent(saved.current);
           if (typeof saved.maxReached === "number" && saved.maxReached >= 1)
@@ -474,6 +506,8 @@ export default function OnboardingApp() {
     } catch {
       /* ignore corrupt storage */
     }
+    // No answer from the server: the cached copy is the best guess at what it holds.
+    setServerSlices(serverSlicesOf(fallback));
   };
 
   // Pick up the logged-in user (and optionally the new entity name) from the
@@ -617,6 +651,9 @@ export default function OnboardingApp() {
         setState((prev) => ({ ...prev, accounting: { ...accountingOf(prev), mode: "xero" } }));
         setCurrent(4);
         setMaxReached((m) => Math.max(m, 4));
+        setServerSlices(
+          serverSlicesOf({ ...initialState(), ...((resumed && resumed.state) || {}) }),
+        );
         return;
       }
 
@@ -713,6 +750,12 @@ export default function OnboardingApp() {
           if (typeof saved.maxReached === "number" && saved.maxReached >= 1) {
             setMaxReached(saved.maxReached);
           }
+          // Before a company exists nothing is saved on the server; after, this copy is it.
+          setServerSlices(
+            serverSlicesOf(
+              saved.state?.entity?.id ? { ...initialState(), ...saved.state } : initialState(),
+            ),
+          );
           return;
         }
       }
@@ -729,6 +772,8 @@ export default function OnboardingApp() {
       }
       const t = (p.get("token") || "").trim();
       if (t) setToken(t);
+      // A new company: nothing saved on the server yet.
+      setServerSlices(serverSlicesOf(initialState()));
     }
   }, []);
 
@@ -1014,6 +1059,9 @@ export default function OnboardingApp() {
       }
       if (data.entity_id) {
         setState((prev) => ({ ...prev, entity: { ...prev.entity, id: data.entity_id } }));
+        // Step 1's draft was kept before the company existed (no company in its key): it is saved.
+        const before = draftScopeFromToken(token);
+        if (before) removeDraft(draftKey(before, STEP_DRAFT_FORM, "1"));
       }
       savedEntityRef.current = { ...payload };
       return { ok: true };
@@ -1130,6 +1178,7 @@ export default function OnboardingApp() {
         return res.json() as Promise<AccountCodesResponse>;
       })
       .then((data) => {
+        setStepLoads((l) => ({ ...l, accounts: true }));
         if (!data || !data.connected) return;
         const bank = data.bank_accounts || [];
         const cashSale = data.cash_sale_accounts || [];
@@ -1166,6 +1215,20 @@ export default function OnboardingApp() {
           });
           expenseCodesVal = { all: false, selected: selMap };
         }
+        // What the server holds for steps 6 and 7, for their drafts.
+        serverSaved(6, {
+          expenseCodes: expenseCodesVal,
+          pcAccount: labelFor(bank, md.pettycash),
+          depositAccount: labelFor(bank, md.deposit),
+          directorCode: labelFor(director, md.director),
+          cashSalesCode: labelFor(cashSale, md.cash_sale),
+          discrepancyCode: labelFor(discrepancy, md.discrepancy),
+        });
+        serverSaved(7, {
+          directorContact: labelFor(contacts, cd.director),
+          cashSaleContact: labelFor(contacts, cd.cash_sale),
+          discrepancyContact: labelFor(contacts, cd.discrepancy),
+        });
         setState((prev) => ({
           ...prev,
           pettyCash: {
@@ -1345,6 +1408,8 @@ export default function OnboardingApp() {
         (data.selected_codes || []).forEach((c) => {
           selected[c] = true;
         });
+        setStepLoads((l) => ({ ...l, petty: true }));
+        serverSaved(6, { pettyCodes: { all: false, selected } });
         setState((prev) => ({
           ...prev,
           pettyCash: { ...prev.pettyCash, pettyCodes: { all: false, selected } },
@@ -1415,6 +1480,8 @@ export default function OnboardingApp() {
           });
           billCodesVal = { all: false, selected: selMap };
         }
+        setStepLoads((l) => ({ ...l, bills: true }));
+        serverSaved(8, { billCodes: billCodesVal });
         setState((prev) => ({
           ...prev,
           bills: { ...prev.bills, billCodes: billCodesVal },
@@ -1617,6 +1684,9 @@ export default function OnboardingApp() {
       } catch {
         /* storage unavailable — nothing saved to drop */
       }
+      // And every step's draft for this company (lib/stepDraft.ts).
+      if (draftScope)
+        for (const n of DRAFT_STEPS) removeDraft(draftKey(draftScope, STEP_DRAFT_FORM, String(n)));
       return { ok: true, trialEnd: data?.trial_end || null };
     } catch {
       return { ok: false, error: "I couldn't reach the server. Mind trying again?" };
@@ -1635,7 +1705,11 @@ export default function OnboardingApp() {
   // block the exit — we save what's valid and go.
   const saveAndExit = async (submitFn?: SubmitFn) => {
     try {
-      if (typeof submitFn === "function") await submitFn();
+      if (typeof submitFn === "function") {
+        const result = await submitFn();
+        // Saved: the step's draft goes. A failed save keeps it - it is all that is left.
+        if (result?.ok) stepDraftClear.current?.();
+      }
     } catch {
       /* best-effort — never block the exit on a save failure */
     }
@@ -1710,13 +1784,33 @@ export default function OnboardingApp() {
   // the selected modules: Bills (8) when bills is on, otherwise Others (7).
   const isLastContentStep = current === activeIds[activeIds.length - 2];
 
+  // A save that succeeded is what the server now holds for the step: its draft compares with that
+  // (and, clean again, removes itself).
+  const savedAs = <R extends { ok: boolean }>(result: R, step: number, part: StepSlice): R => {
+    if (result?.ok) serverSaved(step, part);
+    return result;
+  };
+  const balanceTyped = String(state.pettyCash.openingBalance ?? "").trim() !== "";
+
+  // Steps 6-8 read their values when they open; their drafts wait for those reads.
+  const stepLoaded =
+    current === 6
+      ? setupMode === "minty"
+        ? stepLoads.petty
+        : stepLoads.accounts
+      : current === 7
+        ? stepLoads.accounts
+        : current === 8
+          ? stepLoads.bills
+          : true;
+
   const stepProps: StepProps = {
     state,
     set,
     next,
     back,
-    submitEntity,
-    submitModule,
+    submitEntity: async () => savedAs(await submitEntity(), 1, draftSlice(1, state)),
+    submitModule: async () => savedAs(await submitModule(), 2, { modules: state.modules }),
     modulePlans,
     token,
     connectXero,
@@ -1728,14 +1822,30 @@ export default function OnboardingApp() {
     xeroConflict,
     clearXeroConflict: () => setXeroConflict(null),
     releaseXeroConflict,
-    submitSalesMethods,
-    submitOpeningBalance,
+    submitSalesMethods: async () =>
+      savedAs(await submitSalesMethods(), 5, {
+        electronicMethods: state.pettyCash.electronicMethods,
+        deliveryMethods: state.pettyCash.deliveryMethods,
+      }),
+    // An empty balance is not sent (submitOpeningBalance), so nothing about it is saved.
+    submitOpeningBalance: async () =>
+      savedAs(
+        await submitOpeningBalance(),
+        5,
+        balanceTyped
+          ? {
+              openingBalance: state.pettyCash.openingBalance,
+              openingDate: state.pettyCash.openingDate,
+            }
+          : {},
+      ),
     accountOptions,
-    submitAccountCodes,
-    submitContacts,
+    submitAccountCodes: async () => savedAs(await submitAccountCodes(), 6, draftSlice(6, state)),
+    submitContacts: async () => savedAs(await submitContacts(), 7, draftSlice(7, state)),
     createContact,
-    submitBills,
-    submitPettyCodes,
+    submitBills: async () => savedAs(await submitBills(), 8, draftSlice(8, state)),
+    submitPettyCodes: async () =>
+      savedAs(await submitPettyCodes(), 6, { pettyCodes: state.pettyCash.pettyCodes }),
     pettySub,
     setPettySub,
     submitInvite,
@@ -1837,19 +1947,33 @@ export default function OnboardingApp() {
             })}
           </aside>
         )}
-        {current === 1 && <StepCreateEntity {...stepProps} />}
-        {current === 2 && <StepSelectModule {...stepProps} />}
-        {current === 3 && <StepInvite {...stepProps} />}
-        {current === 4 && <StepAccountingSetup {...stepProps} />}
-        {current === 5 && <StepSalesSetting {...stepProps} />}
-        {current === 6 &&
-          (setupMode === "minty" ? (
-            <StepPettyCodes {...stepProps} />
-          ) : (
-            <StepAccountCode {...stepProps} />
-          ))}
-        {current === 7 && <StepOthers {...stepProps} />}
-        {current === 8 && <StepBills {...stepProps} />}
+        {isDraftStep(current) && (
+          // One binding per step (keyed): leaving the step keeps what was typed under its own key.
+          <StepDraftBinding
+            key={current}
+            step={current}
+            scope={draftScope}
+            ready={serverSlices !== null && stepLoaded}
+            state={state}
+            set={set}
+            serverSlice={serverSlices?.[current] ?? null}
+            clearRef={stepDraftClear}
+          >
+            {current === 1 && <StepCreateEntity {...stepProps} />}
+            {current === 2 && <StepSelectModule {...stepProps} />}
+            {current === 3 && <StepInvite {...stepProps} />}
+            {current === 4 && <StepAccountingSetup {...stepProps} />}
+            {current === 5 && <StepSalesSetting {...stepProps} />}
+            {current === 6 &&
+              (setupMode === "minty" ? (
+                <StepPettyCodes {...stepProps} />
+              ) : (
+                <StepAccountCode {...stepProps} />
+              ))}
+            {current === 7 && <StepOthers {...stepProps} />}
+            {current === 8 && <StepBills {...stepProps} />}
+          </StepDraftBinding>
+        )}
         {current === 9 && <StepAllSet {...stepProps} />}
       </main>
 

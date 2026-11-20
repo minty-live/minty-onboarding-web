@@ -40,6 +40,22 @@ describe("onboardingFetch (owner's decisions doc S1, 2026-11-19)", () => {
     expect(assign).toHaveBeenCalledWith(expect.stringMatching(/\/entity\/e-1\/modules$/));
   });
 
+  // The auto-saved drafts outlive an expiry - that is one of the things they exist for: only an
+  // explicit sign-out removes them (components/ui/sidebarHost.ts).
+  it("a 401 relaunch keeps the person's auto-saved drafts", async () => {
+    window.sessionStorage.setItem(TAB_TOKEN_KEY, tokenWith(now() - 10));
+    const draft = "minty:draft:1:u1:e-1:onb.step:3";
+    window.localStorage.setItem(draft, "{}");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("{}", { status: 401 })),
+    );
+    await onboardingFetch("http://api/x", { headers: { Authorization: "Bearer t" } });
+    expect(assign).toHaveBeenCalled();
+    expect(window.localStorage.getItem(draft)).toBe("{}");
+    window.localStorage.removeItem(draft);
+  });
+
   it("a token handed over in the last minute is a refusal, never a loop", async () => {
     window.sessionStorage.setItem(TAB_TOKEN_KEY, tokenWith(now() + TOKEN_MINUTES * 60 - 5));
     vi.stubGlobal(
@@ -127,6 +143,19 @@ describe("a 401 whose sign-in has ended", () => {
     const target = new URL(shown.mock.calls[0][0]);
     expect(target.origin + target.pathname).toBe(FLASK_BASE + "/");
     expect(target.searchParams.get("next")).toBe("/entity/e-1/modules");
+  });
+
+  it("keeps the person's auto-saved drafts (only an explicit sign-out removes them)", async () => {
+    const draft = "minty:draft:1:u1:e-1:onb.step:5";
+    window.localStorage.setItem(draft, "{}");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ended()),
+    );
+    await onboardingFetch("http://api/x", { headers: { Authorization: "Bearer t" } });
+    expect(shown).toHaveBeenCalledTimes(1);
+    expect(window.localStorage.getItem(draft)).toBe("{}");
+    window.localStorage.removeItem(draft);
   });
 
   it("a token handed over in the last minute still says so - the reason is the server's word", async () => {

@@ -26,6 +26,7 @@ import {
   type Suggestion,
 } from "../../lib/accountingApi";
 import { accountingOf, salesTicksOf } from "../../lib/wizardSteps";
+import { useStepDraftField } from "../../lib/stepDraft";
 import type { BusinessType, StepProps } from "../../lib/types";
 
 // Owner, 2026-11-11: no daily-closing (4.5 / X4) screen any more - the business type's set brings the
@@ -414,6 +415,8 @@ function ModeScreen({
   onSave: (mode: "minty" | "xero") => Promise<void>;
 }) {
   const [mode, setMode] = useState<"minty" | "xero" | null>(initial ?? (connected ? "xero" : null));
+  // Each screen's pick is kept in the step's auto-saved draft until its Save (lib/stepDraft.ts).
+  useStepDraftField("acs.mode", mode, setMode);
   const [refused, setRefused] = useState(false);
   const [saving, setSaving] = useState(false);
   // Each card's picture is its own crop of one artwork sheet, as the design places it (Figma
@@ -546,6 +549,7 @@ function SalesAccountsScreen({
     electronic: initial.electronic,
     delivery: initial.delivery,
   });
+  useStepDraftField("acs.sales", ticks, setTicks);
   const [refused, setRefused] = useState(false);
   const [saving, setSaving] = useState(false);
   const none = !ticks.cash && !ticks.electronic && !ticks.delivery;
@@ -643,6 +647,7 @@ function BusinessScreen({
   const [business, setBusiness] = useState<BusinessType | "none" | "">(
     answered ? (initial.businessType ?? "none") : "",
   );
+  useStepDraftField("acs.business", business, setBusiness);
   const [attempt, setAttempt] = useState(0);
   const [saving, setSaving] = useState(false);
 
@@ -802,6 +807,13 @@ function AccountForm({
   const [code, setCode] = useState(initial?.code ?? nextCode[startType] ?? "");
   const [codeTouched, setCodeTouched] = useState(!!initial);
   const [name, setName] = useState(initial?.name ?? "");
+  // Kept in the step's auto-saved draft until it is saved (one per form: add, or edit that row).
+  useStepDraftField(idPrefix, { type, code, name }, (v) => {
+    setType(v.type);
+    setCode(v.code);
+    setCodeTouched(true);
+    setName(v.name);
+  });
   const [attempt, setAttempt] = useState(0);
   const [server, setServer] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -1091,6 +1103,9 @@ function AccountsScreen({
   const [busy, setBusy] = useState(false);
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
+  // Which form is open, so Restore opens it again before putting its fields back.
+  useStepDraftField(`acs.adding.${kind}`, adding, setAdding);
+  useStepDraftField(`acs.editing.${kind}`, editing, setEditing);
   // Filled = something Revert would take out. A kept row (Cash Over / Short, which daily closing
   // uses) is not Auto Fill's any more, or Revert would seem to fill the list again (2026-11-11).
   const autoFilled = accounts.some((a) => a.auto_filled);
@@ -1478,6 +1493,7 @@ function XeroAccountsScreen({
   const [ticked, setTicked] = useState<Set<string>>(
     () => new Set(rows.filter((a) => a.used).map((a) => a.id)),
   );
+  useStepDraftField(`acs.xero.${kind}`, [...ticked].sort(), (ids) => setTicked(new Set(ids)));
   const [query, setQuery] = useState("");
   const [more, setMore] = useState(false);
   const [error, setError] = useState("");
