@@ -1,12 +1,13 @@
 // The wizard's auto-saved drafts (lib/stepDraft.ts, components/StepDraft.tsx; @minty/shared/drafts):
 // what is typed on the open step is kept in this browser 2 s after the last change, and a reload -
-// which rebuilds the wizard from GET /state - asks first: "You have unsaved changes from 10:42",
-// Restore / Discard. The company is never written by the draft; the step's own save clears it.
+// which rebuilds the wizard from GET /state - puts it back at once, with no notice (the user,
+// 2026-11-24); a stale one is dropped silently. The company is never written by the draft; the
+// step's own save clears it.
 //
 // The whole wizard is mounted, with fetch stubbed: a "reload" is an unmount (which keeps what was
 // typed in the last 2 s) and a fresh mount resuming from this tab's token and company.
 
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -83,7 +84,13 @@ function mount() {
 }
 
 const nameInput = () => screen.getByLabelText(/Entity Name/) as HTMLInputElement;
-const notice = () => document.querySelector("[data-draft-notice]") as HTMLElement | null;
+/** Nothing about a draft is drawn: no notice, no Restore or Discard. */
+const noNotice = () => {
+  expect(document.querySelector("[data-draft-notice]")).toBeNull();
+  expect(screen.queryByText(/unsaved changes/i)).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Restore" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Discard" })).not.toBeInTheDocument();
+};
 const kept = (step: number) => {
   const raw = window.localStorage.getItem(draftKeyFor(step));
   return raw ? (JSON.parse(raw) as { value: { state: Payload; locals: Payload } }) : null;
@@ -103,9 +110,7 @@ async function typedThenReloaded(typed = "Olive & Vine Two") {
   fireEvent.change(nameInput(), { target: { value: typed } });
   first.unmount();
   expect(kept(1)?.value.state.name).toBe(typed);
-  const second = mount();
-  await waitFor(() => expect(notice()).not.toBeNull());
-  return second;
+  return mount();
 }
 
 describe("keeping what is typed", () => {
@@ -131,52 +136,31 @@ describe("keeping what is typed", () => {
   });
 });
 
-describe("a reload asks first", () => {
-  it("shows the notice and changes nothing until the person picks", async () => {
+describe("a reload puts the draft back at once", () => {
+  it("the step opens with what was typed, no notice, nothing saved to the company", async () => {
     await typedThenReloaded();
-    expect(notice()).toHaveAttribute("data-draft-notice", "fresh");
-    expect(notice()).toHaveTextContent(/You have unsaved changes from \d\d:\d\d\./);
-    // The step shows what the server holds until Restore.
-    expect(nameInput().value).toBe("Olive & Vine");
-    // The glyph's ligature is not printed as a word (globals.css hides it; no icon font here).
-    expect(within(notice()!).getByRole("button", { name: "Restore" })).toBeInTheDocument();
+    await waitFor(() => expect(nameInput().value).toBe("Olive & Vine Two"));
+    noNotice();
+    expect(puts).toHaveLength(0);
   });
 
-  it("Restore puts the step's values back", async () => {
-    await typedThenReloaded();
-    await userEvent.click(screen.getByRole("button", { name: "Restore" }));
-    expect(nameInput().value).toBe("Olive & Vine Two");
-    expect(notice()).toBeNull();
-    expect(puts).toHaveLength(0); // still nothing saved to the company
-  });
-
-  it("Discard removes the draft and keeps the server's values", async () => {
-    await typedThenReloaded();
-    await userEvent.click(screen.getByRole("button", { name: "Discard" }));
-    expect(notice()).toBeNull();
-    expect(nameInput().value).toBe("Olive & Vine");
-    expect(kept(1)).toBeNull();
-  });
-
-  it("a company saved again since shows the draft as stale - never put back", async () => {
+  it("a company saved again since drops the draft silently - never put back", async () => {
     const first = await onStepOne();
     fireEvent.change(nameInput(), { target: { value: "Olive & Vine Two" } });
     first.unmount();
+    expect(kept(1)).not.toBeNull();
     // Someone saved the company in the meantime.
     payload = companyAt(1, "Olive & Vine Holdings");
     mount();
-    await waitFor(() => expect(notice()).toHaveAttribute("data-draft-notice", "stale"));
-    expect(notice()).toHaveTextContent(/This was saved again after your unsaved changes from/);
-    expect(screen.queryByRole("button", { name: "Restore" })).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Show what I typed" }));
-    expect(notice()).toHaveTextContent("Entity name");
-    expect(notice()).toHaveTextContent("Olive & Vine Two");
+    await waitFor(() => expect(nameInput().value).toBe("Olive & Vine Holdings"));
+    await waitFor(() => expect(kept(1)).toBeNull());
     expect(nameInput().value).toBe("Olive & Vine Holdings");
+    noNotice();
   });
 });
 
 describe("step-local inputs", () => {
-  it("Restore puts the invite form back (kept until it is sent)", async () => {
+  it("the invite form is back as soon as the step opens (kept until it is sent)", async () => {
     payload = companyAt(3);
     const first = mount();
     await userEvent.click(await screen.findByRole("button", { name: "Ok" }));
@@ -188,13 +172,15 @@ describe("step-local inputs", () => {
 
     mount();
     await userEvent.click(await screen.findByRole("button", { name: "Ok" }));
-    await waitFor(() => expect(notice()).not.toBeNull());
-    expect((screen.getByPlaceholderText("Enter first name") as HTMLInputElement).value).toBe("");
-    await userEvent.click(screen.getByRole("button", { name: "Restore" }));
-    expect((screen.getByPlaceholderText("Enter first name") as HTMLInputElement).value).toBe("Ann");
+    await waitFor(() =>
+      expect((screen.getByPlaceholderText("Enter first name") as HTMLInputElement).value).toBe(
+        "Ann",
+      ),
+    );
     expect((screen.getByPlaceholderText("Enter email address") as HTMLInputElement).value).toBe(
       "ann@example.com",
     );
+    noNotice();
   });
 });
 

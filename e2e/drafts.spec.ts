@@ -1,6 +1,6 @@
 // The auto-saved draft on a phone and a desktop (lib/stepDraft.ts, components/StepDraft.tsx):
-// type on the open step, reload, and the wizard asks first - "You have unsaved changes from
-// 10:42" - Restore puts it back. Nothing is wider than the screen and both answers are 44px.
+// type on the open step, reload, and the step opens with it at once - no notice, nothing to answer
+// (the user, 2026-11-24). Nothing is wider than the screen.
 //
 // NEEDS NO CREDENTIALS AND NO BACKEND: the onboarding API is answered by page.route() (GET /state
 // rebuilds the company; everything else answers `{}`), and the tab's token is an unsigned one the
@@ -65,7 +65,7 @@ test.beforeEach(async () => {
 });
 
 for (const width of [360, 1440] as const) {
-  test(`a reload offers the typed step back, and Restore puts it there, at ${width}px`, async ({
+  test(`a reload puts the typed step back at once, with no notice, at ${width}px`, async ({
     page,
   }) => {
     await page.setViewportSize({ width, height: 900 });
@@ -85,21 +85,10 @@ for (const width of [360, 1440] as const) {
       .toBe(true);
 
     await page.reload();
-    const notice = page.locator("[data-draft-notice]");
-    await expect(notice).toBeVisible();
-    await expect(notice).toContainText(/You have unsaved changes from \d\d:\d\d\./);
-    // No icon font in this app: the glyph's ligature never shows as a word.
-    await expect(notice.locator(":scope > span").first()).toBeHidden();
-    await expect(notice).not.toContainText("history", { useInnerText: true });
-    await expect(name).toHaveValue("Olive & Vine"); // nothing changes until the person picks
-    expect(await pageOverflow(page), "the notice fits the screen").toBeLessThanOrEqual(0);
-    for (const label of ["Restore", "Discard"]) {
-      const box = await notice.getByRole("button", { name: label }).boundingBox();
-      expect(box!.height, `"${label}" is a 44px target`).toBeGreaterThanOrEqual(44);
-    }
-
-    await notice.getByRole("button", { name: "Restore" }).click();
-    await expect(notice).toHaveCount(0);
     await expect(name).toHaveValue("Olive & Vine Two");
+    await expect(page.locator("[data-draft-notice]")).toHaveCount(0);
+    await expect(page.getByText(/unsaved changes/i)).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Restore" })).toHaveCount(0);
+    expect(await pageOverflow(page), "the step fits the screen").toBeLessThanOrEqual(0);
   });
 }

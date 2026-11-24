@@ -283,21 +283,18 @@ buttons) do.
   compared as the server holds them (`normalizeSlice`: the phone compact, names and emails
   trimmed, modules in one order, the balance as a number, step 5's date only beside a balance -
   it is filled for you and saved only with one). A draft taken against other values is
-  **stale**: shown read-only (Show what I typed), never put back.
+  **stale**: dropped silently, never put back.
 - **Ready** once the resume has settled (or the no-company local restore has run) and, on steps
   6-8, once the step's own read is in.
-- **The notice** (`DraftNotice`, `components/StepDraft.tsx`) sits at the top of the step:
-  "You have unsaved changes from 10:42." - Restore puts the step's values and its step-local
-  inputs back (an input not on screen yet, such as step 4's account form, gets its value when it
-  opens), Discard removes the draft. A draft holding exactly what is on screen (Back and forth in
-  one visit, or the pre-company copy the local session restores) is taken quietly. This app loads
-  no icon font, so `app/globals.css` hides the notice's glyph (its ligature would print
-  "history").
+- **Put back at once, no notice** (the user, 2026-11-24; `DraftRestore` in
+  `components/StepDraft.tsx`): when the step opens, its values and its step-local inputs are
+  restored (an input not on screen yet, such as step 4's account form, gets its value when it
+  opens); a stale draft is removed silently. Nothing about a draft is drawn.
 - **Leaving a step** (Back, the stepper) unmounts its binding, which writes what was typed in the
   last 2 seconds under that step's key; a hidden page (`pagehide`) does the same.
 - **Removed** when the step completes (Save & Next calls `next`, which clears it; Save & Exit
-  clears it when its save succeeded), at finish (every step's, on a successful finalize), on
-  Discard, after 7 days, and on an explicit sign-out (`sidebarHost.logOut` awaits
+  clears it when its save succeeded), at finish (every step's, on a successful finalize), when
+  stale, after 7 days, and on an explicit sign-out (`sidebarHost.logOut` awaits
   `clearDraftsForUser`, settled within 500 ms, before it forgets the token). The 60-minute
   expiry and the 401 relaunch (`lib/onboardingFetch.ts`) keep them - surviving those is what
   they are for.
@@ -391,10 +388,10 @@ words the wizard shows; the app never invents a message for a status it does not
 Unit (`npm test`): `lib/__tests__/wizardSteps.test.ts` (with the Minty-on-its-own rules), `components/__tests__/AccountingSetup.test.tsx` (step 4's screens, fetch mocked; 4.4's held list: no write until Save & Next, one PUT, a refusal keeps it, Save & Exit, the draft restores it), `validation.test.ts`, `invites.test.ts`,
 `components/__tests__/Stepper.test.tsx`, `HeaderMenu.test.tsx`, `components/ui/__tests__/sidebarHost.test.ts` and `lib/__tests__/profileApi.test.ts` (the side menu and My Profile), `StepChrome.test.tsx`, `StepInvite.test.tsx` (the arrival prompt's Ok / Skip; the cancel question), `MintySelect.test.tsx` (the type-to-add hint), `pettyCashFields.test.tsx`,
 `MethodList.test.tsx`, `CardBrand.test.tsx` (the two fits and their crops), `components/__tests__/StepDraft.test.tsx` and
-`lib/__tests__/stepDraft.test.ts` (the auto-saved drafts: kept after 2 s, a reload asks, Restore
-with the invite form, Discard, stale, Save & Next clears), the sign-out and 401 cases in
-`sidebarHost.test.ts` and `onboardingFetch.test.ts`. Browser (`npm run test:e2e`): `e2e/drafts.spec.ts` (the draft notice
-and Restore at 360 and 1440px - no credentials and no backend: the API is answered by
+`lib/__tests__/stepDraft.test.ts` (the auto-saved drafts: kept after 2 s, a reload puts them back
+at once with the invite form, a stale one dropped, Save & Next clears), the sign-out and 401 cases in
+`sidebarHost.test.ts` and `onboardingFetch.test.ts`. Browser (`npm run test:e2e`): `e2e/drafts.spec.ts` (the draft put
+back with no notice at 360 and 1440px - no credentials and no backend: the API is answered by
 `page.route`), `e2e/held-changes.spec.ts` (4.4's held list and its one PUT, and step 3's cancel
 question, at 360 and 1440px, stubbed the same way), `e2e/stack.spec.ts` (the two backends
 answer), `resume.spec.ts` (the database decides the landing step; `saved_step` and

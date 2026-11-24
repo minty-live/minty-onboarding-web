@@ -119,8 +119,8 @@ last_connected_at FROM pettycashv3.entities WHERE id = '<id>';` — connect sets
       Next: the sentence "<name> is already used in your records or Petty Cash Settings, so it
       can't be deleted." shows above Save & Next, the list stays as held, and nothing changed
       in the database (every other change in that save is undone too).
-- [ ] Change the list, wait 2 s and reload: "You have unsaved changes from HH:MM." - Restore
-      puts the held list back. Save & Exit saves the held list before leaving.
+- [ ] Change the list, wait 2 s and reload: the held list is back at once, with no notice.
+      Save & Exit saves the held list before leaving.
 - [ ] **DB:** `SELECT code, name, source FROM pettycashv3.account_info WHERE entity_id = '<id>'
 AND record_status = 'active' ORDER BY code;` matches the list after Save & Next.
 
@@ -195,20 +195,18 @@ pettycashv3.entity_cash_setting WHERE entity_id = '<id>';` — one row per activ
       "visited".
 - [ ] **Auto-saved drafts** ([wizard.md](wizard.md), "Auto-saved drafts"), at 360 and 1440px:
       type on the open step (step 1's name, the invite form on step 3, a sales method not yet
-      added on step 5), wait 2 s and reload - the step shows the saved values under "You have
-      unsaved changes from HH:MM." with Restore and Discard (44px, stacked on a phone); nothing
-      changed until one is pressed. Restore puts the typing back, invite form included; Discard
-      removes it (a second reload shows no notice).
-- [ ] Nothing typed (or typed back to what was saved): no notice after a reload. Step 5's date,
-      filled for you, is not a change on its own.
+      added on step 5), wait 2 s and reload - the typing is back at once, invite form included,
+      with no notice and nothing to answer (the user, 2026-11-24). A draft the company was saved
+      over since is dropped silently.
+- [ ] Nothing typed (or typed back to what was saved): nothing changes after a reload. Step 5's
+      date, filled for you, is not a change on its own.
 - [ ] Save & Next (and a Save & Exit whose save succeeded) leaves no draft behind: re-entering
-      the step shows no notice. A successful finalize removes every step's draft.
-- [ ] Saved again elsewhere (change the step in another tab, then reload the first): the notice
-      says "This was saved again after your unsaved changes …", has no Restore, and Show what I
-      typed lists them read-only.
+      the step shows the saved values. A successful finalize removes every step's draft.
+- [ ] Saved again elsewhere (change the step in another tab, then reload the first): the step
+      shows the saved values, no notice, and its `minty:draft:…` key is gone.
 - [ ] The menu's Logout removes this person's drafts (DevTools → Local Storage: no
       `minty:draft:1:<user>:…` keys); a session that expires (60 minutes) or a 401 relaunch keeps
-      them, and the relaunch offers them back.
+      them, and the relaunch puts them back.
 - [ ] **DB:** typing alone writes nothing - `onboarding_saved_step` and the step's rows change
       only on the step's own save.
 - [ ] A company left unfinished does not block resuming later, no matter how long it sits

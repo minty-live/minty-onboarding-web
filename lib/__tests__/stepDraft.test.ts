@@ -4,14 +4,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import {
-  applyDraftSlice,
-  describeStepDraft,
-  draftSlice,
-  isDraftStep,
-  serverSlicesOf,
-  sliceMark,
-} from "../stepDraft";
+import { applyDraftSlice, draftSlice, isDraftStep, serverSlicesOf, sliceMark } from "../stepDraft";
 import { initialState } from "../wizardSteps";
 import type { WizardState } from "../types";
 
@@ -92,19 +85,6 @@ describe("putting a draft back", () => {
   it("every draft step has a server slice from a state", () => {
     expect(Object.keys(serverSlicesOf(initialState())).map(Number)).toEqual([
       1, 2, 3, 4, 5, 6, 7, 8,
-    ]);
-  });
-});
-
-describe("Show what I typed (a stale draft)", () => {
-  it("lists the named values and the typed step-local inputs, never ids", () => {
-    const rows = describeStepDraft({
-      state: draftSlice(1, withEntity({ name: "Acme", country: "uuid-hk" })),
-      locals: { invite: { first: "Ann", last: "", email: "ann@example.com", role: "" } },
-    });
-    expect(rows).toEqual([
-      { label: "Entity name", value: "Acme" },
-      { label: "Invite", value: "Ann, ann@example.com" },
     ]);
   });
 });

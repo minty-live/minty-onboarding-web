@@ -7,23 +7,21 @@
  * The step's own save calls `clearRef` first (OnboardingApp `next`), so a finished step leaves
  * nothing behind.
  *
- * The notice sits at the top of the step: "You have unsaved changes from 10:42." - Restore puts the
- * step's values and its step-local inputs back, Discard removes the draft; nothing changes until
- * the person picks. A draft that holds exactly what is on screen already (a Back and forth in the
- * same visit, or the pre-company copy the local session restores) is taken quietly, no notice.
+ * The draft is put back as soon as the step opens - its values and its step-local inputs - with no
+ * notice (the user, 2026-11-24; `DraftRestore`). A stale one (the step was saved again since) is
+ * dropped silently.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
-import { fingerprint, useAutoSaveDraft, type DraftScope } from "@minty/shared/drafts";
-import { DraftNotice } from "@minty/shared/ui";
+import { useAutoSaveDraft, type DraftScope } from "@minty/shared/drafts";
+import { DraftRestore } from "@minty/shared/ui";
 
 import {
   STEP_DRAFT_FORM,
   STEP_DRAFT_SHAPE,
   StepDraftContext,
   applyDraftSlice,
-  describeStepDraft,
   draftSlice,
   sliceMark,
   type StepDraftRegistry,
@@ -118,15 +116,7 @@ export function StepDraftBinding({
     };
   }, [clearRef, draft.clear]);
 
-  // What is typed now, as the draft would hold it - to take an offer that changes nothing quietly.
-  const shownMark = sliceMark(step, slice) + fingerprint(locals);
   const { offer, restore } = draft;
-  useEffect(() => {
-    if (!offer || offer.stale) return;
-    const offered =
-      sliceMark(step, offer.value?.state ?? {}) + fingerprint(offer.value?.locals ?? {});
-    if (offered === shownMark) restore();
-  }, [offer, restore, shownMark, step]);
 
   const onRestore = useCallback(() => {
     const taken = restore();
@@ -143,15 +133,7 @@ export function StepDraftBinding({
   return (
     <StepDraftContext.Provider value={registry}>
       {offer && (
-        <DraftNotice
-          className="mb-6"
-          savedAt={offer.savedAt}
-          stale={offer.stale}
-          missing={offer.missing}
-          onRestore={onRestore}
-          onDiscard={draft.discard}
-          describe={() => describeStepDraft(offer.value)}
-        />
+        <DraftRestore stale={offer.stale} onRestore={onRestore} onDiscard={draft.discard} />
       )}
       {children}
     </StepDraftContext.Provider>

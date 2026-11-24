@@ -3,9 +3,9 @@
 /**
  * The wizard's auto-saved drafts (`@minty/shared/drafts`, the owner's decisions doc L1): what is
  * typed on the OPEN step is kept in this browser 2 seconds after the last change, as one draft per
- * step - form `onb.step`, record = the step number - and offered back when the step opens again
- * ("You have unsaved changes from 10:42" - Restore / Discard). It never writes the company: only
- * the step's own Save & Next (or its own save buttons) does.
+ * step - form `onb.step`, record = the step number - and put back at once when the step opens
+ * again, with no notice (the user, 2026-11-24). It never writes the company: only the step's own
+ * Save & Next (or its own save buttons) does.
  *
  * The draft's value is `{ state, locals }`:
  * - `state` - the part of `WizardState` the step edits (`draftSlice`). Steps 3 and 4 keep nothing
@@ -17,7 +17,7 @@
  *
  * `basedOn` is `fingerprint(normalizeSlice(step, server slice))`: the step's values as the server
  * last gave or took them (GET /state on resume, the step's loads, each successful save). A draft
- * taken against other values is `stale` - shown, never put back.
+ * taken against other values is `stale` - dropped silently, never put back.
  *
  * This module never touches `minty_onboarding_session` (the /state-failure fallback and the Xero
  * resume keep that blob as they were).
@@ -169,67 +169,12 @@ export function applyDraftSlice(
   }
 }
 
-// ---- what a stale draft shows (Show what I typed) ----------------------------------------------
-
-const SLICE_LABELS: Record<string, string> = {
-  name: "Entity name",
-  phone: "Phone number",
-  email: "Business email",
-  modules: "Modules",
-  electronicMethods: "Electronic methods",
-  deliveryMethods: "Delivery methods",
-  openingBalance: "Opening balance",
-  openingDate: "Opening date",
-  pcAccount: "Petty cash account",
-  depositAccount: "Deposit account",
-  directorCode: "Director's account",
-  cashSalesCode: "Cash sales account",
-  discrepancyCode: "Discrepancy account",
-  directorContact: "Director contact",
-  cashSaleContact: "Cash sale contact",
-  discrepancyContact: "Discrepancy contact",
-};
-const MODULE_NAMES: Record<string, string> = { pettyCash: "Petty Cash", bills: "Payment Request" };
-
-const shown = (v: unknown): string => {
-  if (Array.isArray(v)) return v.map((x) => MODULE_NAMES[String(x)] ?? String(x)).join(", ");
-  if (v && typeof v === "object")
-    return Object.values(v as Record<string, unknown>)
-      .filter((x) => typeof x === "string" && x)
-      .join(", ");
-  return v === undefined || v === null ? "" : String(v);
-};
-
-const localLabel = (name: string): string | null => {
-  if (name === "invite") return "Invite";
-  if (name.startsWith("method:")) return `New ${name.slice("method:".length)} method`;
-  if (name.startsWith("acs-add-")) return "New account";
-  if (name.startsWith("acs-edit-")) return "Account being edited";
-  return null;
-};
-
-/** The rows Show what I typed lists: the slice's named values and the typed step-local inputs. */
-export function describeStepDraft(value: StepDraftValue): { label: string; value: string }[] {
-  const rows: { label: string; value: string }[] = [];
-  for (const [key, v] of Object.entries(value.state ?? {})) {
-    const label = SLICE_LABELS[key];
-    const text = shown(v);
-    if (label && text) rows.push({ label, value: text });
-  }
-  for (const [name, v] of Object.entries(value.locals ?? {})) {
-    const label = localLabel(name);
-    const text = shown(v);
-    if (label && text) rows.push({ label, value: text });
-  }
-  return rows;
-}
-
 // ---- step-local inputs ---------------------------------------------------------------------------
 
 /** What a step's draft binding (components/StepDraft.tsx) offers the inputs inside the step. */
 export type StepDraftRegistry = {
-  /** The input is on screen; returns its detach. A value Restore brought before it mounted is
-   * put back now. */
+  /** The input is on screen; returns its detach. A value restored before it mounted is put back
+   * now. */
   attach(name: string, set: (value: unknown) => void): () => void;
   /** Its value when it differs from what it opened with, else undefined (nothing to keep). */
   report(name: string, value: unknown): void;
