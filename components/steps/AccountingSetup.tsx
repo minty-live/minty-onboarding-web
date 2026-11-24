@@ -59,6 +59,8 @@ type Props = Pick<
   | "clearXeroChoose"
   | "xeroConflict"
   | "clearXeroConflict"
+  | "xeroCurrency"
+  | "clearXeroCurrency"
   | "releaseXeroConflict"
 >;
 
@@ -256,6 +258,8 @@ export function StepAccountingSetup(props: Props) {
         clearXeroChoose={props.clearXeroChoose}
         xeroConflict={props.xeroConflict}
         clearXeroConflict={props.clearXeroConflict}
+        xeroCurrency={props.xeroCurrency}
+        clearXeroCurrency={props.clearXeroCurrency}
         releaseXeroConflict={props.releaseXeroConflict}
         saveAndExit={saveAndExit}
       />,

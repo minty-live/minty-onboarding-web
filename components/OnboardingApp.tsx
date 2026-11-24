@@ -85,6 +85,7 @@ import type {
   WizardState,
   SetState,
   XeroConflict,
+  XeroCurrency,
 } from "../lib/types";
 import { inviteRows } from "../lib/invites";
 import { phoneForApi } from "../lib/validation";
@@ -169,6 +170,10 @@ export default function OnboardingApp() {
   // free it) so the Accounting step can OFFER the move rather than only naming
   // what to go and disconnect. null = no conflict.
   const [xeroConflict, setXeroConflict] = useState<XeroConflict | null>(null);
+  // Set when the Xero OAuth round-trip returns `xero=currency` (2026-11-24): the organisation's
+  // currency isn't the company's, so accounts-api connected nothing. Holds both ISO codes and
+  // the organisation's name so the Accounting step can say what to change. null = none.
+  const [xeroCurrency, setXeroCurrency] = useState<XeroCurrency | null>(null);
   // Guard the portal for SSR — document.body isn't there during server render.
   const mounted = useMounted();
 
@@ -411,6 +416,7 @@ export default function OnboardingApp() {
           ...(payload.entity?.name ? { name: payload.entity.name } : {}),
           ...(payload.entity?.country ? { country: payload.entity.country } : {}),
           ...(payload.entity?.currency ? { currency: payload.entity.currency } : {}),
+          currencyLocked: payload.entity?.currency_locked === true,
           // Optional and legitimately empty, so key off presence rather than
           // truthiness — otherwise a cleared phone/email would never rehydrate.
           ...(payload.entity?.phone !== undefined ? { phone: payload.entity.phone } : {}),
@@ -615,11 +621,23 @@ export default function OnboardingApp() {
         } else {
           setXeroConflict(null);
         }
+        // Currency block: the organisation keeps its books in another currency. Nothing was
+        // connected; the step says which currency to choose in step 1 (or which org to use).
+        if (xeroParam === "currency") {
+          setXeroCurrency({
+            org: xeroOrg,
+            xeroCurrency: (p.get("xero_currency") || "").trim(),
+            expected: (p.get("expected_currency") || "").trim(),
+          });
+        } else {
+          setXeroCurrency(null);
+        }
         // A blocked attempt (mismatch/conflict) leaves the entity unconnected
         // backend-side. Force disconnected rather than restoring the stashed
         // state, which would wrongly show "connected" for a user who was already
         // linked to one org and tried to switch to a conflicting one.
-        const blocked = xeroParam === "mismatch" || xeroParam === "conflict";
+        const blocked =
+          xeroParam === "mismatch" || xeroParam === "conflict" || xeroParam === "currency";
         if (resumed) {
           if (resumed.token) setToken(resumed.token);
           if (resumed.user) setUser(resumed.user);
@@ -649,6 +667,9 @@ export default function OnboardingApp() {
         // Back from Xero: the person chose Xero on step 4.1, so step 4 opens on Connect to Xero
         // even when the stashed session predates the choice (or there was none).
         setState((prev) => ({ ...prev, accounting: { ...accountingOf(prev), mode: "xero" } }));
+        // Connected: the currency is now Xero's, and Step 1 holds it (the API refuses a change).
+        if (xeroParam === "connected")
+          setState((prev) => ({ ...prev, entity: { ...prev.entity, currencyLocked: true } }));
         setCurrent(4);
         setMaxReached((m) => Math.max(m, 4));
         setServerSlices(
@@ -835,7 +856,11 @@ export default function OnboardingApp() {
           ok: false,
           error: friendlyError(data, "I couldn't disconnect that. Mind trying again?"),
         };
-      set({ xero: { ...state.xero, connected: false, org: "" } });
+      // Disconnected: Step 1's currency opens again, as the API's lock does.
+      set({
+        xero: { ...state.xero, connected: false, org: "" },
+        entity: { ...state.entity, currencyLocked: false },
+      });
       return { ok: true };
     } catch {
       return { ok: false, error: "I couldn't reach the server. Mind trying again?" };
@@ -1821,6 +1846,8 @@ export default function OnboardingApp() {
     clearXeroChoose: () => setXeroChoose(false),
     xeroConflict,
     clearXeroConflict: () => setXeroConflict(null),
+    xeroCurrency,
+    clearXeroCurrency: () => setXeroCurrency(null),
     releaseXeroConflict,
     submitSalesMethods: async () =>
       savedAs(await submitSalesMethods(), 5, {

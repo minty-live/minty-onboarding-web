@@ -123,6 +123,8 @@ const LAUNCH_PARAMS = [
   "conflict_entity",
   "conflict_entity_id",
   "conflict_can_move",
+  "xero_currency",
+  "expected_currency",
 ];
 
 let launchParams: URLSearchParams | null = null;

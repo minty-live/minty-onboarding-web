@@ -84,6 +84,13 @@ created_at DESC;` — a cancelled row reads `revoked`, still present (never dele
       _Connected to \<org\>_, and unlocks Save & Next.
 - [ ] A mismatch return (`?xero=mismatch&expected=<email>`) shows the mismatch notice with
       the expected email, and leaves the connection unmade.
+- [ ] A currency return (`?xero=currency&xero_currency=USD&expected_currency=HKD&org=<tenant>`)
+      opens the "Xero wasn't connected" modal (stays until Close) saying _<org> uses USD in Xero, but you chose HKD for this company, so it wasn't
+      connected. Change the currency to USD in step 1, or connect a Xero organisation that uses
+      HKD._, leaves the connection unmade, and strips the parameters from the address.
+- [ ] Once connected, back on step 1 the Currency is held with _Xero is connected, so the
+      currency stays the same as Xero's. To change it, disconnect Xero first._ under it, and a
+      new Country keeps the currency (360, 768 and 1440px). After _Disconnect_ it opens again.
 - [ ] A conflict return (`?xero=conflict&conflict_entity=<name>`) raises the _That Xero
       organisation is taken_ dialog naming the other company, and the connection is not made.
       Without `conflict_can_move=1` (always the case outside development) there is no

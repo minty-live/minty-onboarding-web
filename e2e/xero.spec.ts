@@ -89,6 +89,27 @@ test("a wrong-account return names the email to sign in with and stays disconnec
   expect(fake.connected).toBe(false);
 });
 
+// An organisation in another currency is refused by accounts-api (2026-11-24); Xero can't change
+// its currency, so the step says which currency to choose in step 1, or which org to use.
+test("an org in another currency says what to change and stays disconnected", async ({
+  page,
+  request,
+}) => {
+  fake.setOutcome({ kind: "currency", xeroCurrency: "USD", expected: "HKD", org: "Acme US" });
+  await land(page, request, creds, 4);
+
+  await connect(page).click();
+
+  await expect(errorToast(page)).toContainText(
+    "Acme US uses USD in Xero, but you chose HKD for this company, so it wasn't connected.",
+  );
+  await expect(status(page)).toHaveText("Not connected");
+  expect(fake.connected).toBe(false);
+  const params = new URL(page.url()).searchParams;
+  expect(params.has("xero_currency")).toBe(false);
+  expect(params.has("expected_currency")).toBe(false);
+});
+
 // An org already in use blocks the connect and ASKS what to do about it: freeing it is a
 // real disconnect of another company, so nothing happens until the person says so. Before
 // 2026-10-09 this case connected anyway and silently unlinked the other company.

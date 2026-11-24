@@ -6,7 +6,8 @@
 //   1. "Connect to Xero" navigates the tab to Flask `/xero_connect?...`. Flask would send
 //      the user to login.xero.com and, on return, redirect back to
 //      `/?xero=connected&step=3&org=<tenant>` (or `xero=mismatch&expected=<email>`,
-//      `xero=conflict&conflict_entity=<name>`). We answer the navigation with that
+//      `xero=conflict&conflict_entity=<name>`,
+//      `xero=currency&xero_currency=<code>&expected_currency=<code>&org=<tenant>`). We answer the navigation with that
 //      redirect directly, so the wizard's own return-path code runs unchanged.
 //   2. `GET /api/onboarding/state` carries `xero.connected`, and the wizard re-reads it on
 //      every landing at step 4 or later. The real response is fetched and only `xero`
@@ -38,7 +39,8 @@ export type XeroOutcome =
       conflictEntity: string;
       conflictEntityId?: string;
       conflictCanMove?: boolean;
-    };
+    }
+  | { kind: "currency"; xeroCurrency: string; expected: string; org?: string };
 
 export type XeroFake = {
   /** What the fake currently tells the wizard the backend believes. */
@@ -142,6 +144,11 @@ export async function installXeroFake(
         back.searchParams.set("org", org);
       } else if (outcome.kind === "mismatch") {
         back.searchParams.set("expected", outcome.expected);
+      } else if (outcome.kind === "currency") {
+        // accounts-api refused an organisation in another currency (2026-11-24).
+        back.searchParams.set("xero_currency", outcome.xeroCurrency);
+        back.searchParams.set("expected_currency", outcome.expected);
+        if (outcome.org) back.searchParams.set("org", outcome.org);
       } else {
         back.searchParams.set("conflict_entity", outcome.conflictEntity);
         // What the dialog needs to OFFER the move, not only name the company.

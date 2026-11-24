@@ -213,9 +213,14 @@ export function StepCreateEntity({
 
   // The phone's code follows the Country until the user picks one; a Country with no dial
   // code pins the picker where it was instead.
+  // While Xero is linked the currency is Xero's and stays (2026-11-24): the picker is held, a
+  // country never brings its own, and the API refuses a change (api_entity.CURRENCY_LOCKED).
+  const currencyLocked = s.currencyLocked === true;
   const changeCountry = (country: string) => {
     // The country's own currency fills an empty Currency; a chosen one is never replaced.
-    const currency = currencyForCountry(countryRows, country, s.currency);
+    const currency = currencyLocked
+      ? s.currency
+      : currencyForCountry(countryRows, country, s.currency);
     const p = parseWizardPhone(s.phone);
     if (s.phoneCountry || !p) return set({ entity: { ...s, country, currency } });
     const to = dial.find((d) => d.iso === country);
@@ -342,13 +347,26 @@ export function StepCreateEntity({
             placeholder="Select a currency"
             required
             invalid={!!messageFor("entity-currency")}
-            ariaDescribedBy={messageFor("entity-currency") ? "entity-currency-error" : undefined}
+            ariaDescribedBy={
+              messageFor("entity-currency")
+                ? "entity-currency-error"
+                : currencyLocked
+                  ? "entity-currency-locked"
+                  : undefined
+            }
             searchable
+            disabled={currencyLocked}
           />
           {messageFor("entity-currency") && (
             <div className="field-required" id="entity-currency-error">
               {messageFor("entity-currency")?.message}
             </div>
+          )}
+          {currencyLocked && (
+            <p className="acs-hint" id="entity-currency-locked">
+              Xero is connected, so the currency stays the same as Xero&apos;s. To change it,
+              disconnect Xero first.
+            </p>
           )}
         </div>
         <PhoneField
@@ -740,6 +758,8 @@ export function StepConnectXero({
   clearXeroChoose,
   xeroConflict,
   clearXeroConflict,
+  xeroCurrency,
+  clearXeroCurrency,
   releaseXeroConflict,
   saveAndExit,
 }: {
@@ -757,6 +777,8 @@ export function StepConnectXero({
   | "clearXeroChoose"
   | "xeroConflict"
   | "clearXeroConflict"
+  | "xeroCurrency"
+  | "clearXeroCurrency"
   | "releaseXeroConflict"
   | "saveAndExit"
 >) {
@@ -793,6 +815,15 @@ export function StepConnectXero({
     );
     if (typeof clearXeroChoose === "function") clearXeroChoose();
   }, [xeroChoose, clearXeroChoose, toast]);
+
+  // The organisation keeps its books in another currency (2026-11-24): accounts-api connected
+  // nothing. Xero can't change an organisation's currency, so the modal below says what to change
+  // here (step 1's currency) or which organisation to pick. A modal, not a toast (the user,
+  // 2026-11-24): the sentence is long and has to be acted on; Close clears the flag.
+  const currencyTitleId = "xero-currency-title";
+  const closeCurrency = () => {
+    if (typeof clearXeroCurrency === "function") clearXeroCurrency();
+  };
 
   // One-org-one-company block. NOT a toast like the mismatch above: the way on is to free
   // the organisation on the company holding it, which is a real disconnect, so it is asked
@@ -952,6 +983,35 @@ export function StepConnectXero({
 
       {/* The organisation picked on Xero is in use by another company. Escape and the
           backdrop close it: nothing has changed yet, and the step still offers Connect. */}
+      {xeroCurrency && (
+        <ModalFrame labelledBy={currencyTitleId} onDismiss={closeCurrency} className="mw-dialog">
+          {/* minty-web's NoticeDialog: ConfirmDialog with one button, as the conflict's Close. */}
+          <div className="mw-dialog-head">
+            <div className="mw-dialog-head-text">
+              <h2 id={currencyTitleId} className="mw-dialog-title">
+                Xero wasn&apos;t connected
+              </h2>
+              {state.entity.name && (
+                <p className="mw-dialog-entity">
+                  Entity
+                  <b>{state.entity.name}</b>
+                </p>
+              )}
+            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/assets/minty-dont.png" alt="" className="mw-dialog-figure" />
+          </div>
+          <p className="mw-dialog-body">
+            {`${xeroCurrency.org || "That Xero organisation"} uses ${xeroCurrency.xeroCurrency} in Xero, but you chose ${xeroCurrency.expected} for this company, so it wasn't connected. Change the currency to ${xeroCurrency.xeroCurrency} in step 1, or connect a Xero organisation that uses ${xeroCurrency.expected}.`}
+          </p>
+          <div className="mw-dialog-actions is-single">
+            <button type="button" className="mw-dialog-btn is-teal" onClick={closeCurrency}>
+              Close
+            </button>
+          </div>
+        </ModalFrame>
+      )}
+
       {xeroConflict && (
         <ModalFrame
           labelledBy={conflictTitleId}

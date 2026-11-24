@@ -144,6 +144,8 @@ function renderStep(
           clearXeroChoose={vi.fn()}
           xeroConflict={null}
           clearXeroConflict={vi.fn()}
+          xeroCurrency={null}
+          clearXeroCurrency={vi.fn()}
           releaseXeroConflict={vi.fn()}
         />
       </ToastProvider>

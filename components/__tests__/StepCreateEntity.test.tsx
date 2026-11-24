@@ -61,11 +61,13 @@ const remember = (s: WizardState) => {
 function Harness({
   submitEntity,
   next,
+  initial,
 }: {
   submitEntity: () => Promise<{ ok: true }>;
   next: () => void;
+  initial?: WizardState;
 }) {
-  const [state, setState] = useState<WizardState>(initialState);
+  const [state, setState] = useState<WizardState>(() => initial ?? initialState());
   useEffect(() => remember(state), [state]);
   return (
     <ToastProvider>
@@ -82,10 +84,10 @@ function Harness({
   );
 }
 
-function renderStep() {
+function renderStep(initial?: WizardState) {
   const submitEntity = vi.fn(() => Promise.resolve({ ok: true as const }));
   const next = vi.fn();
-  const view = render(<Harness submitEntity={submitEntity} next={next} />);
+  const view = render(<Harness submitEntity={submitEntity} next={next} initial={initial} />);
   const byId = (id: string) => view.container.querySelector<HTMLElement>(`#${id}`)!;
   return { ...view, submitEntity, next, byId };
 }
@@ -198,6 +200,45 @@ describe("StepCreateEntity -- choosing a country", () => {
     await userEvent.click(saveNext());
     expect(submitEntity).toHaveBeenCalledTimes(1);
     await waitFor(() => expect(next).toHaveBeenCalledTimes(1));
+  });
+});
+
+const LOCKED_MSG =
+  "Xero is connected, so the currency stays the same as Xero's. To change it, disconnect Xero first.";
+
+describe("StepCreateEntity -- the currency while Xero is linked (2026-11-24)", () => {
+  const linked = (currencyLocked: boolean): WizardState => ({
+    ...initialState(),
+    entity: {
+      ...initialState().entity,
+      id: "e1",
+      name: "Acme Ltd",
+      country: "HK",
+      currency: "hkd-id",
+      currencyLocked,
+    },
+  });
+
+  it("holds the currency and says why", async () => {
+    const { byId } = renderStep(linked(true));
+    await waitFor(() => expect(byId("entity-currency")).toHaveValue("Hong Kong Dollar"));
+    expect(byId("entity-currency")).toBeDisabled();
+    expect(screen.getByText(LOCKED_MSG)).toBeInTheDocument();
+    expect(byId("entity-currency")).toHaveAttribute("aria-describedby", "entity-currency-locked");
+  });
+
+  it("keeps the currency when another country is chosen", async () => {
+    const { byId } = renderStep(linked(true));
+    await chooseCountry(byId, "Singapore");
+    expect(latest.entity.country).toBe("SG");
+    expect(latest.entity.currency).toBe("hkd-id");
+  });
+
+  it("leaves the currency open without Xero", async () => {
+    const { byId } = renderStep(linked(false));
+    await waitFor(() => expect(byId("entity-currency")).toHaveValue("Hong Kong Dollar"));
+    expect(byId("entity-currency")).toBeEnabled();
+    expect(screen.queryByText(LOCKED_MSG)).not.toBeInTheDocument();
   });
 });
 

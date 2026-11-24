@@ -33,6 +33,8 @@ export type EntityState = {
   country: string;
   /** A `currency_info` uuid, sent back verbatim on save. */
   currency: string;
+  /** True while Xero is linked: the currency can't change (2026-11-24). Absent from an older API. */
+  currency_locked?: boolean;
   /** Optional step-1 contact details -- ALWAYS present, `""` when unset. */
   phone: string;
   email: string;

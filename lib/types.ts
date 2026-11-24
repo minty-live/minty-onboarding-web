@@ -40,6 +40,9 @@ export type EntityForm = {
   /** Display name until the country/currency registries resolve, then an id. */
   country: string;
   currency: string;
+  /** True while Xero is linked (GET /state's `entity.currency_locked`, 2026-11-24): Step 1
+   * shows the currency as fixed, and the API refuses a change. */
+  currencyLocked?: boolean;
   fyStart: string;
   /** `+<code> <national as typed>` ("+852 9123 4567"); see lib/validation's phone rules. */
   phone: string;
@@ -129,6 +132,14 @@ export type XeroConflict = {
   name: string;
   entityId: string;
   canMove: boolean;
+};
+
+/** `xero=currency` (2026-11-24): the organisation's currency isn't the company's, so nothing was
+ * connected. ISO codes, and the organisation's name ("" when Xero gave none). */
+export type XeroCurrency = {
+  org: string;
+  xeroCurrency: string;
+  expected: string;
 };
 
 /**
@@ -282,6 +293,9 @@ export type StepProps = {
   /** Set when the Xero org the person picked is already connected to another company. */
   xeroConflict: XeroConflict | null;
   clearXeroConflict: () => void;
+  /** Set when the Xero organisation's currency isn't the company's (`xero=currency`). */
+  xeroCurrency: XeroCurrency | null;
+  clearXeroCurrency: () => void;
   /**
    * Free the organisation on the company holding it, then go back through Xero for this one -
    * the move the conflict dialog offers. Resolves only on a failure; on success the browser
