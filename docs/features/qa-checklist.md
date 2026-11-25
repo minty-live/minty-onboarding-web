@@ -53,9 +53,9 @@ pettycashv3.entities WHERE id = '<id>';` — one row, `status = 'onboarding'`, t
       after-trial price.
 - [ ] The billing sheet (card capture + consent) opens from this step and Stripe.js loads
       only once it is opened, not on page load.
-- [ ] Card network marks on this screen and on minty-web's equivalent summary render at
-      the same size (sub-pay-mark: 74 wide, mark at most 42 tall) — spot-check side by
-      side if both are available.
+- [ ] Card network marks on this screen and on minty-web's equivalent summary sit in the
+      same white chip (`pm-brand`, 56 x 36) as the Payment Methods sheet — spot-check side
+      by side if both are available.
 - [ ] **DB:** `SELECT * FROM pettycashv3.entity_function_map WHERE entity_id = '<id>';`
       reflects exactly the modules picked — this table is Flask's, written through the
       `/modules` proxy, not by this service.

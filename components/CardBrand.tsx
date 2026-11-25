@@ -55,9 +55,9 @@ const SHORT: Record<string, string> = {
  *                        wallet, which has no card object to take a brand from.
  * @param {?string} label the server's `brand_label` ('Visa', 'Apple Pay'), used as the
  *                        chip text when `brand` is unknown and as the accessible name.
- * @param {string} className where the mark is DRESSED, which differs by where it is used:
- *                        the card picker frames it as a chip (`pm-brand`), the subscription
- *                        summary draws it bare and larger (`sub-pay-mark`). The frame is
+ * @param {string} className where the mark is DRESSED. Every saved card wears the chip
+ *                        (`pm-brand`, the default) - the card picker and the subscription
+ *                        summary alike (the user, 2026-11-25). The frame is
  *                        CSS, so both get the same marks from the same code — a card looks
  *                        the same wherever it is shown, which is the point of there being
  *                        one component.

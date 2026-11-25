@@ -984,7 +984,14 @@ export default function BillingSheet({
                             ("Visa •••• 4121") used where a card has to fit in a sentence.
                             A wallet has no last4 to end in, so it keeps the server's. */}
                         <span className="billing-pm-label">
-                          {m.last4 ? `${m.brand_label} ending in ${m.last4}` : m.label}
+                          {m.last4 ? (
+                            <>
+                              {m.brand_label}{" "}
+                              <span className="card-last4">ending in {m.last4}</span>
+                            </>
+                          ) : (
+                            m.label
+                          )}
                         </span>
                         {m.expiry ? (
                           <span className="billing-pm-meta">

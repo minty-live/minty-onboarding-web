@@ -36,7 +36,7 @@ and they skip entirely unless all three of these are set:
 Never commit these. Export them for the run:
 
 ```bash
-export E2E_JWT_SECRET='<the shared SECRET_KEY from Minty/.env>'
+export E2E_JWT_SECRET='<the shared SECRET_KEY from minty-accounts-api/.env>'
 export E2E_USER_ID='070b40af-d5fc-4430-8e25-f11b3294d5f5'
 export E2E_ENTITY_ID='ee72f706-49f2-4690-83d6-e5f8d284ba2c'
 npm run test:e2e

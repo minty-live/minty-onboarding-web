@@ -75,11 +75,12 @@ The billing sheet's address (Stripe's AddressElement) starts on the company's St
 from the browser's location, so a Hong Kong payer on a US-set browser met "United States".
 
 A card's network mark is `components/CardBrand.tsx`: our own wordmark (Mastercard's circles
-drawn as circles), never the issuers' licensed artwork. It has two fits — `tile`, the picker
-chip's (`pm-brand`), and `mark`, cropped to the logo itself for the summary's slot
-(`sub-pay-mark`: 74 wide, as tall as the mark, at most 42, so 01-C's Mastercard lands 63 x 42
-against the frame's 68 x 42). minty-web's copy draws the same marks at the same size in its
-summaries; change the two together.
+drawn as circles), never the issuers' licensed artwork. Every saved card wears it in the
+same white chip (`pm-brand`, 56 x 36), the Payment Methods sheet and the module step's
+summary alike (the user, 2026-11-25: no bare marks), and "ending in NNNN" never splits
+(`.card-last4`), so a phone breaks after the brand name. The component still has a cropped
+`fit="mark"` that nothing draws now. minty-web's copy (`CardBrandChip`) draws the same chip
+in every place; change the two together.
 
 ## Accounting Setup — step 4, Xero optional
 

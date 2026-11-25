@@ -261,14 +261,18 @@ export function ModuleSubscriptionSummary({
              `card.label` is the fallback for a method with no last4 to end in: a Link
              wallet exposes no card object at all, and "Link" is the true answer. */
           <span className="sub-pay-card">
-            <CardBrand
-              brand={card.brand}
-              label={card.brand_label}
-              className="sub-pay-mark"
-              fit="mark"
-            />
+            {/* In the sheet's own chip (`.pm-brand`): every card wears it (the user,
+                2026-11-25). "ending in NNNN" is one unit, so a phone breaks after the
+                brand name rather than leaving the last four on a line of their own. */}
+            <CardBrand brand={card.brand} label={card.brand_label} />
             <span className="sub-pay-name">
-              {card.last4 ? `${card.brand_label} ending in ${card.last4}` : card.label}
+              {card.last4 ? (
+                <>
+                  {card.brand_label} <span className="card-last4">ending in {card.last4}</span>
+                </>
+              ) : (
+                card.label
+              )}
             </span>
             {/* ONLY ONCE THERE IS A CARD TO CHANGE — which is why it lives here, in the
                 card column, rather than beside the label: it sits under the card it
