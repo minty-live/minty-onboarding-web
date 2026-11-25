@@ -4464,6 +4464,13 @@ textarea {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  /* Every picture's cat stands right of centre; trim more from the left so it stays whole. */
+  object-position: 85% center;
+}
+/* These two cats stand nearer the middle; keep them a little further right. */
+.acs-biz.is-fnb .acs-biz-art img,
+.acs-biz.is-service .acs-biz-art img {
+  object-position: 60% center;
 }
 .acs-biz-text {
   display: flex;
