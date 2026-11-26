@@ -92,3 +92,34 @@ for (const width of [360, 1440] as const) {
     expect(await pageOverflow(page), "the step fits the screen").toBeLessThanOrEqual(0);
   });
 }
+
+for (const width of [360, 1440] as const) {
+  test(`step 1's Cancel without saving drops the draft and leaves for the company list, at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await stubApi(page);
+    // The company list is accounts-api's: answer it here, so leaving is all that is checked.
+    await page.route(/\/entity$/, (route) =>
+      route.fulfill({ status: 200, contentType: "text/html", body: "<p>Company list</p>" }),
+    );
+    await page.goto("/");
+
+    const name = page.getByLabel(/Entity Name/);
+    await expect(name).toHaveValue("Olive & Vine");
+    await name.fill("Olive & Vine Two");
+    const kept = () =>
+      page.evaluate(() =>
+        Object.keys(window.localStorage).some((k) => k.startsWith("minty:draft:1:")),
+      );
+    await expect.poll(kept).toBe(true);
+
+    await page.getByRole("button", { name: "Cancel without saving" }).click();
+    await page.waitForURL(/\/entity$/);
+
+    // The company list is on another origin: come back to read this one's storage.
+    await page.goto("/");
+    await expect(name).toHaveValue("Olive & Vine");
+    expect(await kept(), "the draft is gone").toBe(false);
+  });
+}

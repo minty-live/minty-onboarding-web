@@ -294,7 +294,9 @@ buttons) do.
 - **Leaving a step** (Back, the stepper) unmounts its binding, which writes what was typed in the
   last 2 seconds under that step's key; a hidden page (`pagehide`) does the same.
 - **Removed** when the step completes (Save & Next calls `next`, which clears it; Save & Exit
-  clears it when its save succeeded), at finish (every step's, on a successful finalize), when
+  clears it when its save succeeded), on step 1's **Cancel without saving** (it drops step 1's
+  draft, then leaves for the company list; the footer's third action, "Back to Entity List"
+  until 2026-11-26), at finish (every step's, on a successful finalize), when
   stale, after 7 days, and on an explicit sign-out (`sidebarHost.logOut` awaits
   `clearDraftsForUser`, settled within 500 ms, before it forgets the token). The 60-minute
   expiry and the 401 relaunch (`lib/onboardingFetch.ts`) keep them - surviving those is what

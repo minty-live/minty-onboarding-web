@@ -1882,6 +1882,7 @@ export default function OnboardingApp() {
     returnToStep,
     exitToEntityList,
     saveAndExit,
+    discardStepDraft: () => stepDraftClear.current?.(),
     isLastContentStep,
   };
 

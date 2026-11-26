@@ -61,10 +61,12 @@ const remember = (s: WizardState) => {
 function Harness({
   submitEntity,
   next,
+  discardStepDraft,
   initial,
 }: {
   submitEntity: () => Promise<{ ok: true }>;
   next: () => void;
+  discardStepDraft: () => void;
   initial?: WizardState;
 }) {
   const [state, setState] = useState<WizardState>(() => initial ?? initialState());
@@ -79,6 +81,7 @@ function Harness({
         next={next}
         submitEntity={submitEntity}
         saveAndExit={vi.fn()}
+        discardStepDraft={discardStepDraft}
       />
     </ToastProvider>
   );
@@ -87,9 +90,17 @@ function Harness({
 function renderStep(initial?: WizardState) {
   const submitEntity = vi.fn(() => Promise.resolve({ ok: true as const }));
   const next = vi.fn();
-  const view = render(<Harness submitEntity={submitEntity} next={next} initial={initial} />);
+  const discardStepDraft = vi.fn();
+  const view = render(
+    <Harness
+      submitEntity={submitEntity}
+      next={next}
+      discardStepDraft={discardStepDraft}
+      initial={initial}
+    />,
+  );
   const byId = (id: string) => view.container.querySelector<HTMLElement>(`#${id}`)!;
-  return { ...view, submitEntity, next, byId };
+  return { ...view, submitEntity, next, discardStepDraft, byId };
 }
 
 const saveNext = () => screen.getByRole("button", { name: "Save & Next" });
@@ -356,5 +367,26 @@ describe("StepCreateEntity -- the company name's length", () => {
     expect(screen.queryByText(NAME_LONG_MSG)).not.toBeInTheDocument();
     expect(screen.queryByRole("note")).not.toBeInTheDocument();
     expect(saveNext()).toBeEnabled();
+  });
+});
+
+describe("StepCreateEntity -- the footer", () => {
+  it("keeps three actions and cancels without saving: the draft goes, then the company list", async () => {
+    const original = window.location;
+    const fake = { ...original, href: original.href };
+    Object.defineProperty(window, "location", { configurable: true, value: fake });
+    try {
+      const { submitEntity, next, discardStepDraft } = renderStep();
+      expect(screen.getByRole("button", { name: "Save & Next" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Save & Exit" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Back to Entity List" })).not.toBeInTheDocument();
+      await userEvent.click(screen.getByRole("button", { name: "Cancel without saving" }));
+      expect(discardStepDraft).toHaveBeenCalledTimes(1);
+      expect(fake.href).toMatch(/\/entity$/);
+      expect(submitEntity).not.toHaveBeenCalled();
+      expect(next).not.toHaveBeenCalled();
+    } finally {
+      Object.defineProperty(window, "location", { configurable: true, value: original });
+    }
   });
 });

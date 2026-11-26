@@ -305,4 +305,6 @@ export type StepProps = {
 
   exitToEntityList: () => void;
   saveAndExit: (submitFn?: SubmitFn) => Promise<void>;
+  /** Drop the open step's auto-saved draft (step 1's "Cancel without saving"). */
+  discardStepDraft: () => void;
 };

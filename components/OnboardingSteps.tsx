@@ -61,7 +61,11 @@ export function StepCreateEntity({
   next,
   submitEntity,
   saveAndExit,
-}: Pick<StepProps, "state" | "set" | "next" | "submitEntity" | "saveAndExit">) {
+  discardStepDraft,
+}: Pick<
+  StepProps,
+  "state" | "set" | "next" | "submitEntity" | "saveAndExit" | "discardStepDraft"
+>) {
   const s = state.entity;
   const upd = <K extends keyof EntityForm>(k: K, v: EntityForm[K]) =>
     set({ entity: { ...s, [k]: v } });
@@ -261,7 +265,9 @@ export function StepCreateEntity({
     next();
   };
 
-  const backToEntityList = () => {
+  // Nothing typed here is kept: the step's auto-saved draft goes too, or it would come back.
+  const cancelWithoutSaving = () => {
+    discardStepDraft();
     window.location.href = urlFor(`/entity`);
   };
   return (
@@ -422,8 +428,8 @@ export function StepCreateEntity({
           </div>
         ) : null}
         <SaveExitLink saveAndExit={saveAndExit} submitFn={submitEntity} disabled={saving} />
-        <button className="btn-link-center" onClick={backToEntityList}>
-          Back to Entity List
+        <button className="btn-link-center" onClick={cancelWithoutSaving}>
+          Cancel without saving
         </button>
       </div>
     </>
