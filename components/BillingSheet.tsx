@@ -63,8 +63,8 @@ import { useEmailInput } from "../lib/emailInput";
  * today costs nothing. The frame does not draw it and it has been removed. So the screen a
  * payer presses CONFIRM on — the consent itself — now states none of those things.
  *
- * They survive in two places, both outside this dialog: the footnote under the module
- * cards (`.module-caption`), and the mandate on the New billing account form, which a
+ * They survive in two places, both outside this dialog: the module step's ⓘ box ("No payment
+ * is required today."), and the mandate on the New billing account form, which a
  * payer choosing a card they already have never sees.
  *
  * Anyone auditing the billing copy should know that is where the disclosure went, and

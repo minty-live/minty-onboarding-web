@@ -175,7 +175,7 @@ line since 2026-11-18, owner).
 - **The Xero path (2026-11-10, Figma 348:1874 / 1949; X2 and X4 removed 2026-11-11):** 4.1
   _Connect with Xero_ -> X1 (Connect to Xero) -> X3 the Xero expense accounts Minty uses
   (`XeroAccountsScreen`: a searchable tick list of the synced chart, `from_xero` rows, ticked =
-  `used`, 10 rows then "Show more accounts", the "Missing an account?" notice, Refresh from Xero
+  `used`, 10 rows then "Show more accounts", its ⓘ box (where the list comes from, and "Missing one? Create it in Xero, then press Refresh."), Refresh from Xero
   `POST /accounting/xero-refresh`); Save & Next posts `/accounting/xero-accounts` (none ticked is
   refused with its sentence). X1's Save & Next goes on to X3 once connected. Petty Cash Settings
   then mirrors the Minty path: 5 Sales, 6 Account Code (the five daily-closing accounts from
@@ -231,7 +231,7 @@ company chose its Petty Cash codes in X3, so its step 6 stays the daily-closing 
 
 **Step 5's sales methods follow the business type (owner, 2026-11-11) and the sales accounts
 (owner, 2026-11-17; Figma 464:73 row 2).** "Type of sales method of your company", with Auto Fill
-(and its hint: "Filled for <business>. Revert empties the list(s) again."): free lists (no
+(no caption since 2026-11-26): free lists (no
 account link), one card per ticked sales account (`MethodList` in
 `components/steps/pettyCashFields.tsx`: the card's badge, "For your Sales - … account", the methods
 as full-width rows in a list labelled "<title> methods" (2026-11-26, owner; chips before), like the
@@ -396,6 +396,17 @@ that contract.
   referrer meta keeps (this app's `Referrer-Policy: same-origin` would send `null`).
 
 ## Copy and errors
+
+**Subtitles and the ⓘ box (owner, 2026-11-26).** Grey subtitles went unread, so on every screen:
+the subtitle (`.page-head p`, `--ink-2`, a step darker than muted) is ONE short sentence, and
+anything the person must know is in ONE ⓘ box (`components/steps/InfoBox.tsx`, `.info-box`) right
+above the list or fields. No other grey help: no Auto Fill captions, no bottom notes, no field hints
+(the currency lock and the opening date's default are in the box), no section sub-lines, no ⓘ
+tooltips, no second notice. Kept: field labels, error and refusal messages, the error summary, a
+gated button's reason beside it (`.step-reminder`) and empty states. The module step's box carries
+"No payment is required today." - the only place outside the billing dialog that says so.
+`e2e/copy-rule.spec.ts` opens each screen on a phone (API stubbed) and holds the rule: one
+sentence, the box's text, none of the retired classes.
 
 `lib/errorCopy.ts` and `docs/ERROR_COPY.md`: the backends answer `{"error": "…"}` in the
 words the wizard shows; the app never invents a message for a status it does not know.

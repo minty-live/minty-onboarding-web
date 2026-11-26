@@ -462,9 +462,11 @@ textarea {
   font-weight: 700;
   letter-spacing: -0.02em;
 }
+/* The subtitle is one short sentence, a step darker than the muted grey (owner, 2026-11-26):
+   anything else the person must know goes in the screen's one ⓘ box (.info-box). */
 .page-head p {
   margin: 0;
-  color: var(--muted);
+  color: var(--ink-2);
   font-size: 15px;
 }
 
@@ -1051,12 +1053,6 @@ textarea {
 .pc-link:hover {
   color: var(--accent);
 }
-.pc-hint {
-  color: var(--muted-2);
-  font-size: 12.5px;
-  font-weight: 400;
-  margin-left: 4px;
-}
 .pc-field select {
   appearance: none;
   border: 1px solid var(--color-border-input);
@@ -1176,11 +1172,6 @@ textarea {
   font-size: 22px;
   color: var(--ink);
   letter-spacing: -0.02em;
-}
-.pc-section-sub {
-  font-size: 14px;
-  color: var(--muted);
-  margin-top: 6px;
 }
 .pc-stack > .pc-section-head + * {
   margin-top: 4px;
@@ -1567,10 +1558,6 @@ textarea {
 .autofill-label {
   display: inline-block;
 }
-.autofill-hint {
-  color: var(--muted);
-  font-size: 13px;
-}
 
 /* Passive "you still need to do X" reminder — informational, NOT an error. */
 .step-reminder {
@@ -1680,13 +1667,6 @@ textarea {
 /* Account codes selection card */
 .acc-card .method-head {
   align-items: flex-start;
-}
-.acc-sub {
-  font-size: 13px;
-  color: var(--muted);
-  margin-top: 4px;
-  font-weight: 400;
-  letter-spacing: 0;
 }
 .acc-search {
   position: relative;
@@ -2266,99 +2246,14 @@ textarea {
   align-items: center;
   gap: 8px;
 }
-.info-tip {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  color: var(--muted);
-  cursor: help;
-  outline: none;
-  background: transparent;
-}
-.info-tip:hover,
-.info-tip:focus-visible {
-  color: var(--ink);
-}
-.info-tip svg {
-  width: 14px;
-  height: 14px;
-}
-.info-tip-pop {
-  position: absolute;
-  bottom: calc(100% + 10px);
-  left: 50%;
-  transform: translateX(-50%) translateY(4px);
-  background: color-mix(in srgb, var(--color-surface-raised) 72%, transparent);
-  -webkit-backdrop-filter: blur(18px) saturate(180%);
-  backdrop-filter: blur(18px) saturate(180%);
-  color: var(--color-text-primary);
-  font-size: 13px;
-  font-weight: 400;
-  letter-spacing: 0;
-  line-height: 1.55;
-  padding: 14px 16px;
-  border-radius: 14px;
-  width: max-content;
-  /* Never wider than the screen it has to fit on. A flat 360px is wider than a 360px
-     phone, and this popup is only opacity-hidden - it sits in the layout at all times, so
-     an oversized one scrolls the whole page sideways without ever being seen. */
-  max-width: min(360px, calc(100vw - 32px));
-  border: 1px solid color-mix(in srgb, var(--color-surface-raised) 60%, transparent);
-  box-shadow:
-    0 18px 40px rgba(15, 23, 42, 0.18),
-    0 2px 6px rgba(15, 23, 42, 0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  opacity: 0;
-  pointer-events: none;
-  cursor: auto;
-  transition:
-    opacity 0.18s ease,
-    transform 0.18s ease;
-  z-index: 50;
-}
 /* Bridges the 10px gap above the icon so the pointer can travel into the
    popup without passing over dead space and closing it. */
-.info-tip-pop::after {
-  content: "";
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  height: 10px;
-}
-.info-tip-pop p {
-  margin: 0;
-}
-.info-tip-pop p + p {
-  margin-top: 8px;
-}
-.info-tip:hover .info-tip-pop,
-.info-tip:focus-visible .info-tip-pop,
-.info-tip:focus-within .info-tip-pop {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
-  pointer-events: auto;
-}
+
 /* Centring on the icon is what runs off the page: both tooltips follow their heading's
    text, so on a phone the icon is near the right edge and half of a centred popup lands
    outside the viewport (137px past it at 360px, scrolling the whole page sideways even
    though nothing is visible). Narrow screens hang it from the icon's right instead, so it
    grows leftwards into the room that exists. Capped above, so it still fits. */
-@media (max-width: 760px) {
-  .info-tip-pop {
-    left: auto;
-    right: -8px;
-    transform: translateY(4px);
-  }
-  .info-tip:hover .info-tip-pop,
-  .info-tip:focus-visible .info-tip-pop,
-  .info-tip:focus-within .info-tip-pop {
-    transform: translateY(0);
-  }
-}
 
 /* MintySelect — themed dropdown */
 .mselect {
@@ -2664,7 +2559,6 @@ textarea {
 
 .module-head,
 .module-layout,
-.module-caption,
 .module-nav {
   --step-col: 642px;
   width: var(--step-col);
@@ -2677,14 +2571,12 @@ textarea {
 }
 .module-head.is-wide,
 .module-layout.is-wide,
-.module-caption.is-wide,
 .module-nav.is-wide {
   --step-col: 1168px;
 }
 @media (prefers-reduced-motion: reduce) {
   .module-head,
   .module-layout,
-  .module-caption,
   .module-nav {
     transition: none;
   }
@@ -2894,8 +2786,8 @@ textarea {
      happens after the trial. The panel this replaced also carried a trial box, a
      fact table, a "Due today" line, an after-trial sentence and a terms link.
      THE "nothing is charged today" MESSAGE MOVED WITH THEM — it is now the
-     footnote under the cards (.module-caption) and the mandate inside the billing
-     dialog. Do not delete that footnote thinking it is decoration. */
+     module step's ⓘ box (.info-box, owner 2026-11-26; it was a footnote under the cards)
+     and the mandate inside the billing dialog. Do not delete that sentence. */
 .sub-summary {
   flex: 0 0 427px;
   margin-top: 8px;
@@ -3233,17 +3125,11 @@ textarea {
      .page-head h2 — centred, 700, and floored at 30px by the text-sizing block
      below, which is why it reads larger here than in the Figma frame. */
 /* Not a footnote in the throwaway sense — see the note on .sub-summary above. */
-.module-caption {
-  margin-top: 40px;
-  text-align: left;
-  line-height: 1.6;
-  color: var(--muted-2);
-}
+
 /* Too narrow for the 1162px break-out: fall back to the page's own width and stack. */
 @media (max-width: 1240px) {
   .module-head,
   .module-layout,
-  .module-caption,
   .module-nav {
     width: 100%;
     margin-left: 0;
@@ -3517,9 +3403,6 @@ textarea {
 }
 .field label,
 .pc-sub,
-.pc-section-sub,
-.pc-hint,
-.acc-sub,
 .acc-all-label,
 .acc-name,
 .acc-empty,
@@ -3530,9 +3413,6 @@ textarea {
 .invite-list-title,
 .invite-field > label,
 .invite-role,
-.module-caption,
-.autofill-hint,
-.info-tip-pop,
 .substep-label,
 .pc-side-title,
 .pc-side-item,
@@ -3563,9 +3443,7 @@ textarea {
   font-size: 18px;
 }
 /* Caption / tooltip text */
-.info-tip-pop p {
-  font-size: 16px;
-}
+
 /* Avoid bumping ultra-compact UI chrome like step pills and badges */
 
 /* Billing sheet (Step 2: which free trial to start).
@@ -4312,15 +4190,10 @@ textarea {
   max-width: none;
   margin-bottom: 18px;
 }
-.acs-note,
 .acs-hint {
   font-size: 13px;
   color: var(--muted);
   overflow-wrap: anywhere;
-}
-.acs-note {
-  margin: 14px 0 0;
-  text-align: center;
 }
 .acs-hint {
   margin: 6px 0 0;
@@ -4601,12 +4474,6 @@ textarea {
 }
 .acs-biz.is-none.is-on .acs-biz-go {
   background: var(--color-action-primary);
-}
-.acs-business .acs-note {
-  padding-top: 22px;
-  margin-top: 0;
-  font-size: 12px; /* the design's 11.5px is under the 12px floor */
-  line-height: 1.55;
 }
 @media (min-width: 1024px) {
   .acs-biz-grid {
@@ -4958,31 +4825,7 @@ textarea {
   border: 0;
   cursor: pointer;
 }
-.acs-notice {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  margin-top: 14px;
-  padding: 14px 16px;
-  background: var(--color-status-info-bg);
-  border-left: 4px solid var(--color-status-info-ink);
-  border-radius: 10px;
-  font-size: 13.5px;
-  line-height: 1.55;
-  color: var(--color-status-info-ink);
-}
-.acs-notice svg {
-  flex-shrink: 0;
-  color: var(--color-status-info-ink);
-  margin-top: 2px;
-}
-.acs-notice p {
-  margin: 0;
-}
-.acs-notice .acs-notice-title {
-  font-weight: 700;
-  color: var(--color-status-info-ink);
-}
+
 /* phones: the type pill sits under the name rather than squeezing it; one line from 480px */
 .acs-xero-row {
   flex-wrap: wrap;
@@ -5533,13 +5376,6 @@ textarea {
   width: 24px;
   height: 24px;
 }
-.acs-mode-note {
-  margin: 0 auto;
-  max-width: 720px;
-  padding-top: 22px;
-  font-size: 12px; /* the design's 11.5px is under the 12px floor */
-  line-height: 1.55;
-}
 .acs-mode-grid ~ .step-nav {
   max-width: 720px;
   margin-left: auto;
@@ -5840,6 +5676,14 @@ textarea {
   margin-top: 1px;
   color: var(--accent-ink);
 }
+/* The screen's one ⓘ box (components/steps/InfoBox.tsx), right above its list or fields. */
+.acs-sa-note.info-box {
+  margin: 0 0 16px;
+  text-align: left;
+}
+.pc-stack > .acs-sa-note.info-box {
+  margin-bottom: 0;
+}
 
 /* Step 5's sales methods (owner, 2026-11-17; Figma 464:73 row 2): a card per ticked sales account,
    its methods as chips (drag or arrow keys to reorder), an add field with "+ Add", the Cash card. */
@@ -5994,7 +5838,4 @@ textarea {
   background: var(--surface);
   border: 1px dashed var(--line-strong);
   border-radius: 16px;
-}
-.pc-sales-note {
-  margin-top: 0;
 }

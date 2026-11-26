@@ -33,6 +33,7 @@ import { inviteExpiryLabel } from "../lib/invites";
 import { useStepDraftField } from "../lib/stepDraft";
 import { toIsoDate } from "../lib/date";
 import { SaveExitLink, StepNav } from "./steps/StepChrome";
+import InfoBox from "./steps/InfoBox";
 import { ErrorSummary, type SummaryItem } from "./steps/ErrorSummary";
 import {
   MODULES,
@@ -276,9 +277,15 @@ export function StepCreateEntity({
       <div className="page-head">
         <img src="/assets/basic-info-cat.png" alt="" className="basic-info-cat" />
         <h2>Basic Information</h2>
-        <p>Let&apos;s start by creating your first entity. It only takes a minute.</p>
+        <p>Let&apos;s start by creating your first entity.</p>
       </div>
       <ErrorSummary items={shownProblems} attempt={attempt} />
+      {currencyLocked && (
+        <InfoBox id="entity-currency-locked">
+          Xero is connected, so the currency stays the same as Xero&apos;s. To change it, disconnect
+          Xero first.
+        </InfoBox>
+      )}
       <div className="form-stack">
         <div className={"field" + (nameTooLong || messageFor("entity-name") ? " field-error" : "")}>
           <label htmlFor="entity-name">
@@ -368,12 +375,6 @@ export function StepCreateEntity({
             <div className="field-required" id="entity-currency-error">
               {messageFor("entity-currency")?.message}
             </div>
-          )}
-          {currencyLocked && (
-            <p className="acs-hint" id="entity-currency-locked">
-              Xero is connected, so the currency stays the same as Xero&apos;s. To change it,
-              disconnect Xero first.
-            </p>
           )}
         </div>
         <PhoneField
@@ -613,11 +614,15 @@ export function StepSelectModule({
     <>
       <div className={"page-head module-head" + wide}>
         <h2>Which free trial would you like to start today?</h2>
-        <p>
-          Each module includes its own {trialTermLabel} free trial. Start with one module or unlock
-          the full Minty experience. Any unselected module can be activated later.
-        </p>
+        <p>Pick the modules to try for free.</p>
       </div>
+      {/* WHERE "nothing is charged today" LIVES (the footnote it was in merged into the one box,
+          owner 2026-11-26). If this sentence goes, the step stops saying it at all - the only other
+          place is the billing dialog, which a payer can finish the step without ever opening. */}
+      <InfoBox>
+        Each module has its own {trialTermLabel} free trial. You can turn on the other one later. No
+        payment is required today.
+      </InfoBox>
       {burst && <Confetti key={burst.n} count={80} origins={burst.origins} />}
       <div className={"module-layout" + wide}>
         <div className="module-grid module-grid-2" ref={gridRef}>
@@ -682,16 +687,6 @@ export function StepSelectModule({
           onOpenBilling={() => setBillingOpen(true)}
         />
       </div>
-      {/* WHERE "nothing is charged today" NOW LIVES. The summary panel used to carry a
-          "Due today" line saying it explicitly; the design replaced that panel with four
-          elements and this footnote. If this sentence goes, the step stops saying it at
-          all — the only other place is the billing dialog, which a payer can finish the
-          step without ever opening. */}
-      <p className={"module-caption" + wide}>
-        Each module comes with its own {trialTermLabel} free trial. Start with one module today, or
-        unlock both and enjoy the complete Minty experience. You can always activate the other trial
-        later. No payment is required today.
-      </p>
       <div className={"step-nav module-nav" + wide}>
         <button className="btn btn-ghost" onClick={back}>
           <Icon.ArrowLeft /> Back
@@ -894,6 +889,7 @@ export function StepConnectXero({
           />
           Xero Integration
         </h2>
+        <p>Connect the Xero organisation this company uses.</p>
       </div>
 
       <div
@@ -1314,15 +1310,6 @@ export function StepSalesSetting({
     anyList &&
     (!ticks.electronic || sameList(p.electronicMethods || [], defaults.electronic)) &&
     (!ticks.delivery || sameList(p.deliveryMethods || [], defaults.delivery));
-  const businessWords = (
-    {
-      fnb: "Restaurant & Food",
-      retail: "Retail shop",
-      service: "Service business",
-      general: "General business",
-    } as Record<string, string>
-  )[accountingOf(state).businessType || ""];
-  const both = ticks.electronic && ticks.delivery;
 
   // Auto Fill's nudge (owner, 2026-11-26): with nothing added and Auto Fill not pressed for 5 s, a
   // shimmer runs across the button every few seconds. A click on it or the first method added stops
@@ -1362,25 +1349,22 @@ export function StepSalesSetting({
       },
     });
   };
-  const subtitle = !anyList
-    ? "Only Sales - Cash is ticked, so there are no payment or delivery methods to add."
-    : both
-      ? "Add the payment and delivery channels you accept. Only the sales accounts you ticked in Accounting Setup are listed here."
-      : ticks.electronic
-        ? "Add the ways customers pay you other than cash. Delivery isn't ticked in Accounting Setup, so it isn't listed."
-        : "Add the delivery apps you take orders through. Electronic Payment isn't ticked in Accounting Setup, so it isn't listed.";
-  const note = !anyList
-    ? "Tick Sales - Electronic Payment or Sales - Delivery in Accounting Setup to add their methods here."
-    : nonCash && ticks.electronic
-      ? "Auto Fill starts with Bank Transfer. Remove any you don’t take, or add your own."
-      : "These become the fields on your daily report’s Sales step.";
+  // One sentence, and one box for the rest (owner, 2026-11-26).
+  const subtitle = "Add the payment and delivery channels you accept.";
+  const note = anyList
+    ? "Only the sales accounts you ticked in Accounting Setup are listed here. These become the fields on your daily report."
+    : "Only Sales - Cash is ticked in Accounting Setup, so there is nothing to add here. Tick Sales - Electronic Payment or Sales - Delivery there to add methods.";
   const openingPage = (
     <>
       <div className="page-head">
         <h2>Petty Cash Opening Balance</h2>
-        <p>Set the starting point so future movements reconcile correctly.</p>
+        <p>Set where your petty cash starts.</p>
       </div>
       <div className="pc-stack">
+        <InfoBox>
+          We&apos;ve put today&apos;s date in — pick another day if you started earlier. The balance
+          is the cash in the box at the start of that day.
+        </InfoBox>
         <div
           className={"pc-card" + (showBalanceError && balanceEmpty ? " is-error" : "")}
           ref={balanceRef}
@@ -1389,12 +1373,7 @@ export function StepSalesSetting({
             className={"pc-field" + (showDateError && dateIsFuture ? " field-error" : "")}
             ref={dateRef}
           >
-            <div className="pc-sub">
-              Choose the first date that you wish to use{" "}
-              <span className="pc-hint">
-                (I&apos;ve put today&apos;s date in — click if you&apos;d like another)
-              </span>
-            </div>
+            <div className="pc-sub">Choose the first date that you wish to use</div>
             <MintyDatePicker
               value={p.openingDate || ""}
               onChange={(v) => {
@@ -1459,15 +1438,11 @@ export function StepSalesSetting({
             onClick={resetDefaults}
             label={isAutofilled ? "Clear auto-filled methods" : "Auto fill default settings"}
           />
-          <span className="autofill-hint">
-            {isAutofilled
-              ? `Filled for ${businessWords || "Restaurant & Food"}. Revert empties the ${both ? "lists" : "list"} again.`
-              : "Not sure what to add? I’ll fill in the usual methods for your business."}
-          </span>
         </div>
       )}
 
       <div className="pc-stack">
+        <InfoBox>{note}</InfoBox>
         {ticks.electronic && (
           <MethodList
             // named after its sales account (owner, 2026-11-17): Electronic for every business
@@ -1514,11 +1489,6 @@ export function StepSalesSetting({
             </span>
           </div>
         )}
-
-        <p className="acs-sa-note pc-sales-note">
-          <Icon.Info width={18} height={18} aria-hidden />
-          <span>{note}</span>
-        </p>
       </div>
 
       <StepNav
@@ -1537,20 +1507,16 @@ export function StepSalesSetting({
 // --- The account-code lists' info box (owner, 2026-11-26) ---
 // Above Petty Cash's and Payment Request's account-code lists: where the list comes from, and - when
 // both modules are chosen - that the other module keeps a list of its own.
-function CodesNote({ module, modules }: { module: "pettyCash" | "bills"; modules: ModuleId[] }) {
+function codesNoteText(module: "pettyCash" | "bills", modules: ModuleId[]): string {
   const both = modules.includes("pettyCash") && modules.includes("bills");
-  const text =
-    module === "pettyCash"
-      ? "These come from your Accounting Setup list. Tick the ones staff can choose when they add a petty cash expense." +
+  return module === "pettyCash"
+    ? "These come from your Accounting Setup list. Tick the ones staff can choose when they add a petty cash expense." +
         (both ? " Payment Request has its own list, so you can pick differently there." : "")
-      : "These come from your Accounting Setup list. Tick the ones staff can choose when they add a payment request." +
+    : "These come from your Accounting Setup list. Tick the ones staff can choose when they add a payment request." +
         (both ? " Petty Cash has its own list." : "");
-  return (
-    <p className="acs-sa-note pc-sales-note" role="note">
-      <Icon.Info width={18} height={18} aria-hidden />
-      <span>{text}</span>
-    </p>
-  );
+}
+function CodesNote({ module, modules }: { module: "pettyCash" | "bills"; modules: ModuleId[] }) {
+  return <InfoBox>{codesNoteText(module, modules)}</InfoBox>;
 }
 
 // --- Step 6 for Minty on its own: Petty Cash's account codes (owner, 2026-11-18) ---
@@ -1644,9 +1610,6 @@ export function StepPettyCodes({
                 <span className="req" aria-hidden>
                   *
                 </span>
-              </div>
-              <div className="acc-sub">
-                Only the ticked account codes appear when you add an expense in Petty Cash.
               </div>
             </div>
           }
@@ -1760,12 +1723,16 @@ export function StepAccountCode({
         <h2>Account Code Setting</h2>
         <p>
           {mappingOnly
-            ? "The Xero accounts daily closing posts to."
-            : "Map each cash flow to the right account in your ledger — these settings need manual input from you."}
+            ? "The Xero accounts Petty Cash posts to."
+            : "Map each cash flow to an account in your ledger."}
         </p>
       </div>
 
       <div className="pc-stack">
+        <InfoBox>
+          {(mappingOnly ? "" : codesNoteText("pettyCash", state.modules) + " ") +
+            "Petty Cash Account is the Xero bank account that records petty cash; add one in Xero first if you need to. Cash Discrepancy records extra or missing cash found at the count — tips or lost receipts, for example."}
+        </InfoBox>
         {!mappingOnly && (
           <>
             <div className="pc-section-head" style={{ marginTop: 0, paddingTop: 0, border: 0 }}>
@@ -1775,12 +1742,8 @@ export function StepAccountCode({
                   *
                 </span>
               </div>
-              <div className="pc-section-sub">
-                Only the ticked account codes appear when you add an expense in Petty Cash.
-              </div>
             </div>
             <div ref={expenseCodesRef}>
-              <CodesNote module="pettyCash" modules={state.modules} />
               <AccountCodesCard
                 codes={expenseCodes}
                 labels={expenseLabels}
@@ -1801,12 +1764,7 @@ export function StepAccountCode({
           cardRef={pcAccountRef}
           fields={[
             {
-              label: (
-                <>
-                  Select Bank account in Xero that will record petty cash movement. You may need to
-                  first add a bank account in Xero.
-                </>
-              ),
+              label: "Select the Xero bank account that records petty cash movement",
               value: p.pcAccount || "",
               onChange: (v) => upd("pcAccount", v),
               options: pcBankOptions,
@@ -1861,20 +1819,7 @@ export function StepAccountCode({
         )}
 
         <div className="pc-section-head">
-          <div className="pc-section-title">
-            Cash Discrepancy — Other Expense
-            <span className="info-tip" tabIndex={0} aria-label="More info">
-              <Icon.Info />
-              <span className="info-tip-pop" role="tooltip">
-                <p>Account code to record the outliers such as extra cash or lost cash.</p>
-                <p>Extra cash may be due to tips from the customer.</p>
-                <p>Lost cash may be due to lost receipts.</p>
-              </span>
-            </span>
-          </div>
-          <div className="pc-section-sub">
-            Where to post unaccounted-for cash differences when reconciling petty cash.
-          </div>
+          <div className="pc-section-title">Cash Discrepancy — Other Expense</div>
         </div>
         <PCSection
           title="Discrepancy — Other Expense"
@@ -1976,14 +1921,15 @@ export function StepOthers({
     <>
       <div className="page-head">
         <h2>Contact Setup</h2>
-        <p>
-          {cashSales
-            ? "Choose the Xero contacts used for the director's account, cash sales, and cash discrepancy."
-            : "Choose the Xero contacts used for the director's account and cash discrepancy."}
-        </p>
+        <p>Choose the Xero contacts Petty Cash uses.</p>
       </div>
 
       <div className="pc-stack">
+        <InfoBox>
+          {cashSales
+            ? "Petty Cash records the director's account, cash sales and cash discrepancies against these contacts."
+            : "Petty Cash records the director's account and cash discrepancies against these contacts."}
+        </InfoBox>
         <PCSection
           title="Director's Contact"
           cardRef={directorContactRef}
@@ -2146,9 +2092,6 @@ export function StepBills({
                 <span className="req" aria-hidden>
                   *
                 </span>
-              </div>
-              <div className="acc-sub">
-                Only the ticked account codes appear when you add a payment request.
               </div>
             </div>
           }
@@ -2353,10 +2296,11 @@ export function StepInvite({
     <>
       <div className="page-head">
         <h2>User Invite</h2>
-        <p>
-          Heads up — users can be added or removed any time from <b>Settings → Users</b>.
-        </p>
+        <p>Invite the people who will help you set up Minty.</p>
       </div>
+      <InfoBox>
+        You can add or remove users any time in <b>Settings → Users</b>.
+      </InfoBox>
 
       <div className="invite-grid">
         <div className="invite-card">

@@ -328,11 +328,11 @@ describe("the sales accounts screen", () => {
 
   it("says how customers pay, with no brand names (owner, 2026-11-26)", () => {
     const { view } = renderStep({ mode: "minty", businessType: "retail", usesSalesCash: true });
-    expect(
-      screen.getByText(
-        "How do your customers pay you? Tick each one you take — your daily report will ask for these amounts every day.",
-      ),
-    ).toBeInTheDocument();
+    // One-sentence subtitle, the rest in the one ⓘ box (owner, 2026-11-26).
+    expect(screen.getByText("How do your customers pay you?")).toBeInTheDocument();
+    expect(screen.getByRole("note")).toHaveTextContent(
+      "Tick each one you take — your daily report will ask for these amounts every day. You can change this later in Settings.",
+    );
     expect(screen.getByText("Cash received at the counter.")).toBeInTheDocument();
     expect(screen.getByText("Card, e-wallet and bank transfer payments.")).toBeInTheDocument();
     expect(screen.getByText("Orders from delivery apps.")).toBeInTheDocument();

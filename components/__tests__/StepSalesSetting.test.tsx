@@ -203,11 +203,9 @@ describe("StepSalesSetting -- the lists follow the sales accounts", () => {
     expect(list("Electronic")).toBeNull();
     expect(list("Delivery")).toBeNull();
     expect(screen.queryByRole("button", { name: /auto fill default settings/i })).toBeNull();
-    expect(
-      screen.getByText(
-        "Only Sales - Cash is ticked, so there are no payment or delivery methods to add.",
-      ),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("note")).toHaveTextContent(
+      "Only Sales - Cash is ticked in Accounting Setup, so there is nothing to add here. Tick Sales - Electronic Payment or Sales - Delivery there to add methods.",
+    );
   });
 
   it("Auto Fill fills only the lists shown", async () => {

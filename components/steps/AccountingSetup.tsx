@@ -11,6 +11,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AutofillButton from "../AutofillButton";
+import InfoBox from "./InfoBox";
 import { ConfirmDialog } from "../ConfirmDialog";
 import Icon from "../Icon";
 import MintySelect from "../MintySelect";
@@ -489,6 +490,7 @@ function ModeScreen({
         <h2 id="acs-mode-title">How would you like Minty to work?</h2>
         <p>Choose how Minty keeps your books.</p>
       </div>
+      <InfoBox>Not sure? Start with Minty only — you can connect Xero later in Settings.</InfoBox>
       <div
         className="acs-mode-grid"
         role="radiogroup"
@@ -532,9 +534,6 @@ function ModeScreen({
           Choose how Minty should work to continue.
         </p>
       )}
-      <p className="acs-note acs-mode-note">
-        Not sure? Start with Minty only — you can connect Xero later in Settings.
-      </p>
       {nav(
         async () => {
           if (!mode) {
@@ -625,11 +624,12 @@ function SalesAccountsScreen({
     <div className="acs acs-sales-accounts">
       <div className="page-head acs-head acs-mode-head">
         <h2 id="acs-sales-title">Your sales accounts</h2>
-        <p>
-          How do your customers pay you? Tick each one you take — your daily report will ask for
-          these amounts every day.
-        </p>
+        <p>How do your customers pay you?</p>
       </div>
+      <InfoBox>
+        Tick each one you take — your daily report will ask for these amounts every day. You can
+        change this later in Settings.
+      </InfoBox>
       <div
         id="acs-sales-accounts"
         tabIndex={-1}
@@ -675,13 +675,6 @@ function SalesAccountsScreen({
           {NO_SALES_ACCOUNT}
         </p>
       )}
-      <p className="acs-sa-note">
-        <Icon.Info width={18} height={18} aria-hidden />
-        <span>
-          Each one you tick adds its part to your daily report. You can change this later in
-          Settings.
-        </span>
-      </p>
       {nav(
         () => void save(),
         saving,
@@ -747,11 +740,12 @@ function BusinessScreen({
     <div className="acs acs-business">
       <div className="page-head acs-head acs-mode-head">
         <h2>What best describes your business?</h2>
-        <p>
-          We&apos;ll suggest accounts that fit your industry on the next two screens. Nothing is
-          added until you press Auto Fill there.
-        </p>
+        <p>Pick the one closest to your business.</p>
       </div>
+      <InfoBox>
+        We&apos;ll suggest accounts for your industry on the next screens. Nothing is added until
+        you press Auto Fill. You can change your business type or any account later in Settings.
+      </InfoBox>
       <ErrorSummary items={shown} attempt={attempt} />
 
       {/* Figma 348:1135: a picture card per business type, the heading asks the question */}
@@ -833,9 +827,6 @@ function BusinessScreen({
         )}
       </fieldset>
 
-      <p className="acs-note">
-        You can change your business type or any account anytime in Settings.
-      </p>
       {nav(save, saving, async () =>
         business
           ? onExitSave(
@@ -1504,12 +1495,17 @@ function AccountsScreen({
         ].filter((g) => g.items.length > 0);
 
   const title = kind === "sales" ? "Your sales categories" : "What do you usually spend money on?";
+  // One sentence, and one box for the rest (owner, 2026-11-26).
   const lede =
     kind === "sales"
+      ? "Choose the sales categories that apply to your business."
+      : "Choose the categories that apply to your business.";
+  const boxText =
+    kind === "sales"
       ? filled
-        ? `Based on ${basedOn}. Choose what applies - you can always add, remove or rename these later.`
-        : "Press Auto Fill for the usual ones, or add your own."
-      : "Choose the categories that apply to your business. Staff pick from these when they add an expense.";
+        ? `Based on ${basedOn}. You can add, remove or rename these later.`
+        : null
+      : "Staff pick from these when they add an expense.";
   const noun = kind === "sales" ? "sales category" : "category";
   const listNoun = kind === "sales" ? "sales categories" : "expense categories";
 
@@ -1542,15 +1538,11 @@ function AccountsScreen({
         <h2>{title}</h2>
         <p>{lede}</p>
       </div>
+      {boxText && <InfoBox>{boxText}</InfoBox>}
 
       {/* the one Auto Fill button, as Petty Cash Settings draws it */}
       <div className="acs-autofill">
         <AutofillButton active={filled} onClick={filled ? revert : autoFill} disabled={busy} />
-        <p className="autofill-hint">
-          {filled
-            ? `Filled for ${basedOn}. Revert takes the suggestions out again.`
-            : `Auto Fill adds the usual ones for ${basedOn}.`}
-        </p>
       </div>
 
       {items.length === 0 && !adding && (
@@ -1794,10 +1786,14 @@ function XeroAccountsScreen({
         <h2>Which {noun} accounts should Minty use?</h2>
         <p>
           {kind === "sales"
-            ? "These come from your Xero chart of accounts. Tick the ones your daily sales are recorded to."
-            : "These come from your Xero chart of accounts. Tick the ones staff pick from when they add an expense."}
+            ? "Tick the accounts your daily sales are recorded to."
+            : "Tick the accounts staff can pick from."}
         </p>
       </div>
+      <InfoBox>
+        These come from your Xero chart of accounts. Missing one? Create it in Xero, then press
+        Refresh. Accounts you don&apos;t tick stay in Xero; they just won&apos;t appear in Minty.
+      </InfoBox>
       <XeroRefresh onRefresh={onRefresh} />
       <div className="acs-xero-stack">
         <label className="acs-xero-search">
@@ -1861,16 +1857,6 @@ function XeroAccountsScreen({
             )}
           </div>
         )}
-      </div>
-      <div className="acs-notice" role="note">
-        <Icon.Info width={18} height={18} />
-        <div>
-          <p className="acs-notice-title">Missing an account?</p>
-          <p>
-            Create it in Xero, then come back and press Refresh — it will show up here. Accounts you
-            don&apos;t tick stay in Xero; they just won&apos;t appear in Minty.
-          </p>
-        </div>
       </div>
       {nav(save, saving, async () =>
         rows.length > 0 && ticked.size === 0 ? null : onExitSave([...ticked]),
