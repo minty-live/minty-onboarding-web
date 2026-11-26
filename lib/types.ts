@@ -309,6 +309,10 @@ export type StepProps = {
 
   exitToEntityList: () => void;
   saveAndExit: (submitFn?: SubmitFn) => Promise<void>;
+  /** Read the step's account-code list again, keeping the person's unsaved ticks (after "+ Add
+   * account", 2026-11-26). Resolves false when the read failed (it said so) or was overtaken. */
+  reloadPettyCodes: () => Promise<boolean>;
+  reloadBillCodes: () => Promise<boolean>;
   /** Drop the open step's auto-saved draft (step 1's "Cancel without saving"). */
   discardStepDraft: () => void;
 };

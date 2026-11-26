@@ -1754,6 +1754,43 @@ textarea {
 }
 
 /* Payment Settings' empty list: the way back to Accounting Setup (2026-11-11). */
+/* "+ Add account" and "Go to Account Settings" under the Petty Cash and Payment account-code
+   lists (the user, 2026-11-26; Minty keeping the books). Wraps on a phone; both 44px targets. */
+.acc-add-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-top: 12px;
+}
+.acc-add-btn {
+  min-height: 44px;
+  color: var(--accent-ink);
+  border-color: var(--accent);
+}
+.acc-settings-link {
+  min-height: 44px;
+  padding: 0 4px;
+  font: inherit;
+  font-weight: 600;
+  color: var(--color-text-link);
+  background: none;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.acc-settings-link:hover {
+  text-decoration: underline;
+}
+.acc-settings-link:focus-visible {
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: 2px;
+}
+.add-account-dialog .acs-form {
+  margin-top: 8px;
+}
+
 .acc-empty-link {
   display: inline-flex;
   align-items: center;

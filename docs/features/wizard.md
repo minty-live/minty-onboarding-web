@@ -224,6 +224,20 @@ its books in Minty then has **Account Code** (step 6, `StepPettyCodes`): "Petty 
 "Choose which of your expense accounts appear in Petty Cash." - one **Petty Cash Account Code** card
 (the same search / Select all / ticks as Payment Request Settings) over step 4's expense accounts,
 ticked as the sheet set them (onboarding-api's `GET`/`POST /petty-cash-codes`), at least one ticked.
+**The lists are read every time their step opens** (the user, 2026-11-26): steps 5-7's Xero lists
+(`/account-codes`), step 6's Petty Cash codes (`/petty-cash-codes`) and step 8's Payment codes
+(`/bill-codes`) used to load once per session, so they went stale after Auto Fill or a change on
+Accounting Setup. Each read carries a counter; an answer overtaken by a newer read, or by leaving the
+step, is dropped, and leaving the step marks it unread so its draft waits for the fresh read
+(`OnboardingApp` `pettySeq`/`billSeq`/`accountSeq`; `components/__tests__/StepListsReload.test.tsx`).
+**"+ Add account" and "Go to Account Settings"** (the user, 2026-11-26; Minty keeping the books - with
+Xero, accounts are added in Xero): under the Petty Cash and Payment code lists. "+ Add account" opens
+Accounting Setup's own add form in a pop-up (`components/steps/AddAccountDialog.tsx`: an Expense,
+Direct costs or Overheads account, the next free code suggested; `POST /accounting/accounts`; a
+refusal with no field is said in the pop-up). The list is then read again with the person's unsaved
+ticks kept, and the new account comes ticked (saved by Save & Next, as any tick). "Go to Account
+Settings" opens step 4's expense list. An empty list says "No expense accounts yet. Add one with + Add
+account below." (`e2e/add-account.spec.ts`).
 Its side menu reads Sales · Opening Balance · Account Code (`pettyIds("minty")` = 5, 6). A Xero
 company chose its Petty Cash codes in X3, so its step 6 stays the daily-closing mapping. Tests:
 `components/__tests__/StepSalesSetting.test.tsx` (Sales, then Opening Balance),

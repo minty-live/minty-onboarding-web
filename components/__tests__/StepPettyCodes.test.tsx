@@ -3,11 +3,31 @@
 // Payment Request Settings has for payment requests. At least one stays ticked.
 
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { StepPettyCodes } from "../OnboardingSteps";
 import { ToastProvider } from "../Toast";
 import { initialState } from "../../lib/wizardSteps";
 import type { AccountOptions, WizardState } from "../../lib/types";
+import { accountingApi } from "../../lib/accountingApi";
+
+vi.mock("../../lib/accountingApi", async (original) => {
+  const real = await original<typeof import("../../lib/accountingApi")>();
+  return { ...real, accountingApi: { ...real.accountingApi, setup: vi.fn(), create: vi.fn() } };
+});
+const setupMock = vi.mocked(accountingApi.setup);
+const createMock = vi.mocked(accountingApi.create);
+beforeEach(() => {
+  setupMock.mockResolvedValue({
+    ok: true,
+    types: [
+      { value: "expense", label: "Expense" },
+      { value: "direct_costs", label: "Direct costs" },
+      { value: "overheads", label: "Overheads" },
+    ],
+    next_code: { expense: "6100", direct_costs: "5100", overheads: "6100" },
+  } as never);
+  createMock.mockReset();
+});
 
 const OPTIONS = {
   petty: [
@@ -27,6 +47,8 @@ function renderStep(
   const set = vi.fn((patch) => {
     state = { ...state, ...(typeof patch === "function" ? patch(state) : patch) };
   });
+  const returnToStep = vi.fn();
+  const reloadPettyCodes = vi.fn(() => Promise.resolve(true));
   render(
     <ToastProvider>
       <StepPettyCodes
@@ -37,11 +59,13 @@ function renderStep(
         accountOptions={OPTIONS}
         submitPettyCodes={submitPettyCodes}
         saveAndExit={vi.fn()}
-        returnToStep={vi.fn()}
+        returnToStep={returnToStep}
+        reloadPettyCodes={reloadPettyCodes}
+        token="tok"
       />
     </ToastProvider>,
   );
-  return { next, submitPettyCodes };
+  return { next, submitPettyCodes, returnToStep, reloadPettyCodes, latest: () => state };
 }
 
 describe("StepPettyCodes", () => {
@@ -82,5 +106,66 @@ describe("StepPettyCodes", () => {
     renderStep({ "5000": true }, ["pettyCash"]);
     expect(screen.getByRole("note")).toHaveTextContent(NOTE);
     expect(screen.getByRole("note")).not.toHaveTextContent(/Payment Request/);
+  });
+});
+
+// "+ Add account" (the user, 2026-11-26): an account added in place, in a pop-up, ticked at once;
+// "Go to Account Settings" opens Accounting Setup's expense list (step 4).
+describe("StepPettyCodes -- adding an account in place", () => {
+  const dialog = () => screen.queryByRole("dialog", { name: "Add an account" });
+
+  it("offers + Add account and Go to Account Settings", () => {
+    const { returnToStep } = renderStep({ "5000": true });
+    expect(screen.getByRole("button", { name: "+ Add account" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Go to Account Settings" }));
+    expect(returnToStep).toHaveBeenCalledWith(4);
+  });
+
+  it("adds the account in a pop-up, reloads the list keeping the ticks, and ticks the new one", async () => {
+    createMock.mockResolvedValue({
+      ok: true,
+      account: { code: "6100", name: "Staff meals" },
+    } as never);
+    const { reloadPettyCodes, latest } = renderStep({ "5000": true });
+    fireEvent.click(screen.getByRole("button", { name: "+ Add account" }));
+    expect(dialog()).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText(/^Code/)).toHaveValue("6100"));
+    fireEvent.change(screen.getByLabelText(/^Name/), { target: { value: "Staff meals" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add account" }));
+
+    await waitFor(() => expect(dialog()).not.toBeInTheDocument());
+    expect(createMock).toHaveBeenCalledWith("tok", expect.any(String), {
+      code: "6100",
+      name: "Staff meals",
+      type: "expense",
+    });
+    expect(reloadPettyCodes).toHaveBeenCalledTimes(1);
+    expect(latest().pettyCash.pettyCodes?.selected).toEqual({ "5000": true, "6100": true });
+  });
+
+  it("a refusal stays in the pop-up", async () => {
+    createMock.mockResolvedValue({
+      ok: false,
+      error: "You can't add accounts in this company.",
+      fields: {},
+    });
+    const { reloadPettyCodes } = renderStep({ "5000": true });
+    fireEvent.click(screen.getByRole("button", { name: "+ Add account" }));
+    await waitFor(() => expect(screen.getByLabelText(/^Code/)).toHaveValue("6100"));
+    fireEvent.change(screen.getByLabelText(/^Name/), { target: { value: "Staff meals" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add account" }));
+
+    expect(await screen.findByText("You can't add accounts in this company.")).toBeInTheDocument();
+    expect(dialog()).toBeInTheDocument();
+    expect(reloadPettyCodes).not.toHaveBeenCalled();
+  });
+
+  it("closes with nothing added on Escape", async () => {
+    renderStep({ "5000": true });
+    fireEvent.click(screen.getByRole("button", { name: "+ Add account" }));
+    expect(dialog()).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() => expect(dialog()).not.toBeInTheDocument());
+    expect(createMock).not.toHaveBeenCalled();
   });
 });

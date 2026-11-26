@@ -97,6 +97,8 @@ const KIND_TYPES: Record<AccountKind, string[]> = {
   sales: ["sales", "revenue", "other_income"],
   expense: ["expense", "direct_costs", "overheads"], // the form starts on Expense
 };
+/** An expense account's types, for "+ Add account" on the code lists (AddAccountDialog). */
+export const EXPENSE_TYPES = KIND_TYPES.expense;
 const CODE_MAX = 10;
 const NAME_MAX = 80;
 
@@ -841,7 +843,7 @@ function BusinessScreen({
 
 // ---- one account's form (4.3b, 4.4a, 4.5a) --------------------------------------------------------
 
-function AccountForm({
+export function AccountForm({
   idPrefix,
   title,
   types,
@@ -925,7 +927,7 @@ function AccountForm({
 
   return (
     <form className="acs-form" onSubmit={submit} noValidate>
-      <p className="acs-form-title">{title}</p>
+      {title ? <p className="acs-form-title">{title}</p> : null}
       <ErrorSummary items={summary} attempt={attempt} />
       <div className="acs-form-row">
         <div className={"field" + (messages.code ? " field-error" : "")}>

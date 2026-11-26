@@ -34,6 +34,7 @@ import { useStepDraftField } from "../lib/stepDraft";
 import { toIsoDate } from "../lib/date";
 import { SaveExitLink, StepNav } from "./steps/StepChrome";
 import InfoBox from "./steps/InfoBox";
+import AddAccountDialog from "./steps/AddAccountDialog";
 import { OpeningVideoLink } from "./steps/OpeningVideo";
 import { ErrorSummary, type SummaryItem } from "./steps/ErrorSummary";
 import {
@@ -1554,6 +1555,8 @@ export function StepPettyCodes({
   submitPettyCodes,
   saveAndExit,
   returnToStep,
+  reloadPettyCodes,
+  token,
 }: Pick<
   StepProps,
   | "state"
@@ -1564,8 +1567,25 @@ export function StepPettyCodes({
   | "submitPettyCodes"
   | "saveAndExit"
   | "returnToStep"
+  | "reloadPettyCodes"
+  | "token"
 >) {
   const p = state.pettyCash;
+  const [adding, setAdding] = useState(false);
+  // The account just added in the pop-up: the list is read again (the ticks kept), then it is ticked.
+  const added = async (code: string) => {
+    setAdding(false);
+    await reloadPettyCodes();
+    set((prev) => {
+      const pc = prev.pettyCash.pettyCodes || { all: false, selected: {} };
+      return {
+        pettyCash: {
+          ...prev.pettyCash,
+          pettyCodes: { ...pc, selected: { ...(pc.selected || {}), [code]: true } },
+        },
+      };
+    });
+  };
   const [saving, setSaving] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
   const toast = useToast();
@@ -1614,14 +1634,7 @@ export function StepPettyCodes({
           searchLabels={false}
           labelAria={false}
           bodyStyle={{ display: "block" }}
-          empty={
-            <>
-              Add an expense account in Accounting Setup first.{" "}
-              <button type="button" className="acc-empty-link" onClick={() => returnToStep(4)}>
-                Go to Accounting Setup
-              </button>
-            </>
-          }
+          empty="No expense accounts yet. Add one with + Add account below."
           header={
             <div
               className="method-head method-head-static"
@@ -1641,6 +1654,26 @@ export function StepPettyCodes({
             Pick at least one account code.
           </div>
         )}
+        {adding ? (
+          <AddAccountDialog
+            token={token}
+            entityId={state.entity.id || ""}
+            onClose={() => setAdding(false)}
+            onAdded={(code) => void added(code)}
+          />
+        ) : null}
+        <div className="acc-add-row">
+          <button
+            type="button"
+            className="btn btn-ghost acc-add-btn"
+            onClick={() => setAdding(true)}
+          >
+            + Add account
+          </button>
+          <button type="button" className="acc-settings-link" onClick={() => returnToStep(4)}>
+            Go to Account Settings
+          </button>
+        </div>
       </div>
 
       <StepNav
@@ -2024,6 +2057,8 @@ export function StepBills({
   saveAndExit,
   isLastContentStep,
   returnToStep,
+  reloadBillCodes,
+  token,
 }: Pick<
   StepProps,
   | "state"
@@ -2035,9 +2070,26 @@ export function StepBills({
   | "saveAndExit"
   | "isLastContentStep"
   | "returnToStep"
+  | "reloadBillCodes"
+  | "token"
 >) {
   const stepSubmit = submitBills;
   const b = state.bills;
+  // Minty keeps the books: accounts may be added here (with Xero they are added in Xero).
+  const mintyBooks = accountingOf(state).mode === "minty";
+  const [adding, setAdding] = useState(false);
+  const added = async (code: string) => {
+    setAdding(false);
+    await reloadBillCodes();
+    set((prev) => {
+      const bc = prev.bills.billCodes || { all: true, selected: {} };
+      const selected = { ...(bc.selected || {}) };
+      // "All" ticks a code unless it is unticked; otherwise it must be ticked by name.
+      if (bc.all !== false) delete selected[code];
+      else selected[code] = true;
+      return { bills: { ...prev.bills, billCodes: { ...bc, selected } } };
+    });
+  };
   const upd = <K extends keyof BillsForm>(k: K, v: BillsForm[K]) =>
     set({ bills: { ...b, [k]: v } });
   const [saving, setSaving] = useState(false);
@@ -2097,12 +2149,16 @@ export function StepBills({
           labelAria={false}
           bodyStyle={{ display: "block" }}
           empty={
-            <>
-              Add an expense account in Accounting Setup first.{" "}
-              <button type="button" className="acc-empty-link" onClick={() => returnToStep(4)}>
-                Go to Accounting Setup
-              </button>
-            </>
+            mintyBooks ? (
+              "No expense accounts yet. Add one with + Add account below."
+            ) : (
+              <>
+                Add an expense account in Accounting Setup first.{" "}
+                <button type="button" className="acc-empty-link" onClick={() => returnToStep(4)}>
+                  Go to Accounting Setup
+                </button>
+              </>
+            )
           }
           header={
             <div
@@ -2123,6 +2179,30 @@ export function StepBills({
             Pick at least one account code.
           </div>
         )}
+        {mintyBooks ? (
+          <>
+            {adding ? (
+              <AddAccountDialog
+                token={token}
+                entityId={state.entity.id || ""}
+                onClose={() => setAdding(false)}
+                onAdded={(code) => void added(code)}
+              />
+            ) : null}
+            <div className="acc-add-row">
+              <button
+                type="button"
+                className="btn btn-ghost acc-add-btn"
+                onClick={() => setAdding(true)}
+              >
+                + Add account
+              </button>
+              <button type="button" className="acc-settings-link" onClick={() => returnToStep(4)}>
+                Go to Account Settings
+              </button>
+            </div>
+          </>
+        ) : null}
       </div>
 
       <StepNav

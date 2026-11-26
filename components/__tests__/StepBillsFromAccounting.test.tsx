@@ -12,12 +12,13 @@ import type { WizardState } from "../../lib/types";
 function renderStep(
   bill: { code: string; name: string }[],
   modules: WizardState["modules"] = ["bills"],
+  mode: "minty" | "xero" = "minty",
 ) {
   const base = initialState();
   const state: WizardState = {
     ...base,
     modules,
-    accounting: { mode: "minty", businessType: "retail", usesSalesCash: false },
+    accounting: { mode, businessType: "retail", usesSalesCash: false },
     bills: { ...base.bills, billCodes: { all: false, selected: { "420": true } } },
   };
   const returnToStep = vi.fn();
@@ -34,6 +35,8 @@ function renderStep(
         saveAndExit={vi.fn()}
         isLastContentStep={false}
         returnToStep={returnToStep}
+        reloadBillCodes={vi.fn(() => Promise.resolve(true))}
+        token="tok"
       />
     </ToastProvider>,
   );
@@ -56,10 +59,10 @@ describe("Payment Request Settings from Accounting Setup", () => {
   it("sends a company with no expense account back to Accounting Setup", () => {
     const { returnToStep } = renderStep([]);
     expect(
-      screen.getByText(/Add an expense account in Accounting Setup first\./),
+      screen.getByText("No expense accounts yet. Add one with + Add account below."),
     ).toBeInTheDocument();
     expect(screen.queryByText(/Connect to Xero/)).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Go to Accounting Setup" }));
+    fireEvent.click(screen.getByRole("button", { name: "Go to Account Settings" }));
     expect(returnToStep).toHaveBeenCalledWith(4);
   });
 
@@ -75,5 +78,20 @@ describe("Payment Request Settings from Accounting Setup", () => {
     renderStep([{ code: "420", name: "Rent" }], ["bills"]);
     expect(screen.getByRole("note")).toHaveTextContent(NOTE);
     expect(screen.getByRole("note")).not.toHaveTextContent(/Petty Cash/);
+  });
+});
+
+describe("Payment Request Settings -- adding an account (the user, 2026-11-26)", () => {
+  it("offers + Add account and Go to Account Settings when the books are kept in Minty", () => {
+    const { returnToStep } = renderStep([{ code: "420", name: "Rent" }]);
+    expect(screen.getByRole("button", { name: "+ Add account" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Go to Account Settings" }));
+    expect(returnToStep).toHaveBeenCalledWith(4);
+  });
+
+  it("offers neither with Xero: accounts are added in Xero", () => {
+    renderStep([{ code: "420", name: "Rent" }], ["bills"], "xero");
+    expect(screen.queryByRole("button", { name: "+ Add account" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Go to Account Settings" })).toBeNull();
   });
 });

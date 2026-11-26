@@ -1225,14 +1225,17 @@ export default function OnboardingApp() {
     }
   };
 
-  const accountLoadedRef = useRef(false);
+  // Read again every time one of its steps opens (the user, 2026-11-26: a once-per-session read went
+  // stale after a change on Accounting Setup). The counter drops an answer that a newer read, or
+  // leaving the step, has overtaken; the step's draft waits for the fresh read (stepLoads).
+  const accountSeq = useRef(0);
   useEffect(() => {
-    if ((current !== 5 && current !== 6 && current !== 7) || accountLoadedRef.current) return;
+    if (current !== 5 && current !== 6 && current !== 7) return;
     if (!token || !state.entity.id) return;
     // Minty on its own chose its accounts in step 4 and has no Xero contacts: nothing to load (the
     // read is Xero's, and would answer 409).
     if (setupMode === "minty") return;
-    accountLoadedRef.current = true;
+    const seq = ++accountSeq.current;
     onboardingFetch(
       urlFor(`/api/onboarding/account-codes?entity_id=${encodeURIComponent(state.entity.id)}`),
       {
@@ -1244,6 +1247,7 @@ export default function OnboardingApp() {
         return res.json() as Promise<AccountCodesResponse>;
       })
       .then((data) => {
+        if (seq !== accountSeq.current) return; // overtaken by a newer read, or the step was left
         setStepLoads((l) => ({ ...l, accounts: true }));
         if (!data || !data.connected) return;
         const bank = data.bank_accounts || [];
@@ -1254,7 +1258,7 @@ export default function OnboardingApp() {
         const contacts = data.contacts || [];
         // Merged, not replaced. This used to overwrite the whole object, which dropped
         // any bill codes already loaded -- a resume that landed on step 8 and then
-        // revisited step 5 lost them, and billLoadedRef stopped the refetch.
+        // revisited step 5 lost them.
         setAccountOptions((prev) => ({
           ...prev,
           bank,
@@ -1314,11 +1318,16 @@ export default function OnboardingApp() {
         }));
       })
       .catch((err) => {
+        if (seq !== accountSeq.current) return;
         // Loud, and retried on the next visit: an empty step would post no codes at all.
         console.error("[onboarding] the account codes did not load", err);
-        accountLoadedRef.current = false;
         toast.error("I couldn't load your account codes. Mind refreshing the page?");
       });
+    return () => {
+      accountSeq.current++; // leaving the step: an answer still on its way is dropped
+      // ...and the next visit starts unread, so its draft waits for the fresh read
+      setStepLoads((l) => ({ ...l, accounts: false }));
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- toast is stable; reload on step/entity/mode only
   }, [current, token, state.entity.id, setupMode]);
 
@@ -1452,40 +1461,66 @@ export default function OnboardingApp() {
 
   // Petty Cash's Account Code for Minty on its own (2026-11-18): step 4's expense accounts, ticked as
   // the sheet set them (onboarding-api's /petty-cash-codes).
-  const pettyCodesLoadedRef = useRef(false);
-  useEffect(() => {
-    if (current !== 6 || setupMode !== "minty" || pettyCodesLoadedRef.current) return;
-    if (!token || !state.entity.id) return;
-    pettyCodesLoadedRef.current = true;
-    onboardingFetch(
-      urlFor(`/api/onboarding/petty-cash-codes?entity_id=${encodeURIComponent(state.entity.id)}`),
+  // Read every time step 6 opens (2026-11-26), and again after "+ Add account" with the person's
+  // unsaved ticks kept (keepTicks: only the list is refreshed).
+  const pettySeq = useRef(0);
+  type PettyCodes = { codes: { code: string; name: string }[]; selected_codes: string[] };
+  const fetchPettyCodes = async (): Promise<PettyCodes> => {
+    const res = await onboardingFetch(
+      urlFor(
+        `/api/onboarding/petty-cash-codes?entity_id=${encodeURIComponent(state.entity.id ?? "")}`,
+      ),
       { headers: { Authorization: `Bearer ${token}` } },
-    )
-      .then((res) => {
-        if (!res.ok) throw new Error(`petty cash codes answered ${res.status}`);
-        return res.json() as Promise<{
-          codes: { code: string; name: string }[];
-          selected_codes: string[];
-        }>;
-      })
-      .then((data) => {
-        setAccountOptions((prev) => ({ ...prev, petty: data.codes || [] }));
-        const selected: Record<string, boolean> = {};
-        (data.selected_codes || []).forEach((c) => {
-          selected[c] = true;
-        });
-        setStepLoads((l) => ({ ...l, petty: true }));
-        serverSaved(6, { pettyCodes: { all: false, selected } });
-        setState((prev) => ({
-          ...prev,
-          pettyCash: { ...prev.pettyCash, pettyCodes: { all: false, selected } },
-        }));
-      })
-      .catch((err) => {
-        console.error("[onboarding] the petty cash account codes did not load", err);
-        pettyCodesLoadedRef.current = false;
-        toast.error("I couldn't load your petty cash account codes. Mind refreshing the page?");
-      });
+    );
+    if (!res.ok) throw new Error(`petty cash codes answered ${res.status}`);
+    return (await res.json()) as PettyCodes;
+  };
+  /** Use a read unless a newer read, or leaving the step, overtook it; keepTicks refreshes the
+   * list only. True when it was used. */
+  const applyPettyCodes = (seq: number, data: PettyCodes, keepTicks: boolean): boolean => {
+    if (seq !== pettySeq.current) return false;
+    setAccountOptions((prev) => ({ ...prev, petty: data.codes || [] }));
+    if (keepTicks) return true;
+    const selected: Record<string, boolean> = {};
+    (data.selected_codes || []).forEach((c) => {
+      selected[c] = true;
+    });
+    setStepLoads((l) => ({ ...l, petty: true }));
+    serverSaved(6, { pettyCodes: { all: false, selected } });
+    setState((prev) => ({
+      ...prev,
+      pettyCash: { ...prev.pettyCash, pettyCodes: { all: false, selected } },
+    }));
+    return true;
+  };
+  const pettyFailed = (seq: number, err: unknown) => {
+    if (seq !== pettySeq.current) return;
+    console.error("[onboarding] the petty cash account codes did not load", err);
+    toast.error("I couldn't load your petty cash account codes. Mind refreshing the page?");
+  };
+  // After "+ Add account": the list again, the person's unsaved ticks kept.
+  const reloadPettyCodes = async (): Promise<boolean> => {
+    if (!token || !state.entity.id) return false;
+    const seq = ++pettySeq.current;
+    try {
+      return applyPettyCodes(seq, await fetchPettyCodes(), true);
+    } catch (err) {
+      pettyFailed(seq, err);
+      return false;
+    }
+  };
+  useEffect(() => {
+    if (current !== 6 || setupMode !== "minty") return;
+    if (!token || !state.entity.id) return;
+    const seq = ++pettySeq.current;
+    fetchPettyCodes()
+      .then((data) => applyPettyCodes(seq, data, false))
+      .catch((err) => pettyFailed(seq, err));
+    return () => {
+      pettySeq.current++; // leaving the step: an answer still on its way is dropped
+      // ...and the next visit starts unread, so its draft waits for the fresh read
+      setStepLoads((l) => ({ ...l, petty: false }));
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- toast is stable; reload on step/entity only
   }, [current, token, state.entity.id, setupMode]);
 
@@ -1515,49 +1550,71 @@ export default function OnboardingApp() {
     }
   };
 
-  const billLoadedRef = useRef(false);
-  useEffect(() => {
-    if (current !== 8 || billLoadedRef.current) return;
-    if (!token || !state.entity.id) return;
-    billLoadedRef.current = true;
-    onboardingFetch(
-      urlFor(`/api/onboarding/bill-codes?entity_id=${encodeURIComponent(state.entity.id)}`),
-      {
-        headers: { Authorization: `Bearer ${token}` },
-      },
-    )
-      .then((res) => {
-        if (!res.ok) throw new Error(`bill codes answered ${res.status}`);
-        return res.json() as Promise<BillCodesResponse>;
-      })
-      .then((data) => {
-        // Step 4's expense accounts (2026-11-11): Minty's own answer is "not connected" and is
-        // still the list.
-        if (!data) return;
-        const bill = data.bill_codes || [];
-        setAccountOptions((prev) => ({ ...prev, bill }));
-        let billCodesVal;
-        if (data.default_all) {
-          billCodesVal = { all: true, selected: {} };
-        } else {
-          const selMap: Record<string, boolean> = {};
-          (data.selected_codes || []).forEach((c) => {
-            selMap[c] = true;
-          });
-          billCodesVal = { all: false, selected: selMap };
-        }
-        setStepLoads((l) => ({ ...l, bills: true }));
-        serverSaved(8, { billCodes: billCodesVal });
-        setState((prev) => ({
-          ...prev,
-          bills: { ...prev.bills, billCodes: billCodesVal },
-        }));
-      })
-      .catch((err) => {
-        console.error("[onboarding] the payment account codes did not load", err);
-        billLoadedRef.current = false;
-        toast.error("I couldn't load your payment account codes. Mind refreshing the page?");
+  // Read every time step 8 opens (2026-11-26), and again after "+ Add account" with the person's
+  // unsaved ticks kept (keepTicks: only the list is refreshed).
+  const billSeq = useRef(0);
+  const fetchBillCodes = async (): Promise<BillCodesResponse> => {
+    const res = await onboardingFetch(
+      urlFor(`/api/onboarding/bill-codes?entity_id=${encodeURIComponent(state.entity.id ?? "")}`),
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+    if (!res.ok) throw new Error(`bill codes answered ${res.status}`);
+    return (await res.json()) as BillCodesResponse;
+  };
+  /** Use a read unless a newer read, or leaving the step, overtook it; keepTicks refreshes the
+   * list only. Step 4's expense accounts (2026-11-11): Minty's own answer is "not connected" and is
+   * still the list. True when it was used. */
+  const applyBillCodes = (seq: number, data: BillCodesResponse, keepTicks: boolean): boolean => {
+    if (seq !== billSeq.current || !data) return false;
+    const bill = data.bill_codes || [];
+    setAccountOptions((prev) => ({ ...prev, bill }));
+    if (keepTicks) return true;
+    let billCodesVal;
+    if (data.default_all) {
+      billCodesVal = { all: true, selected: {} };
+    } else {
+      const selMap: Record<string, boolean> = {};
+      (data.selected_codes || []).forEach((c) => {
+        selMap[c] = true;
       });
+      billCodesVal = { all: false, selected: selMap };
+    }
+    setStepLoads((l) => ({ ...l, bills: true }));
+    serverSaved(8, { billCodes: billCodesVal });
+    setState((prev) => ({
+      ...prev,
+      bills: { ...prev.bills, billCodes: billCodesVal },
+    }));
+    return true;
+  };
+  const billFailed = (seq: number, err: unknown) => {
+    if (seq !== billSeq.current) return;
+    console.error("[onboarding] the payment account codes did not load", err);
+    toast.error("I couldn't load your payment account codes. Mind refreshing the page?");
+  };
+  // After "+ Add account": the list again, the person's unsaved ticks kept.
+  const reloadBillCodes = async (): Promise<boolean> => {
+    if (!token || !state.entity.id) return false;
+    const seq = ++billSeq.current;
+    try {
+      return applyBillCodes(seq, await fetchBillCodes(), true);
+    } catch (err) {
+      billFailed(seq, err);
+      return false;
+    }
+  };
+  useEffect(() => {
+    if (current !== 8) return;
+    if (!token || !state.entity.id) return;
+    const seq = ++billSeq.current;
+    fetchBillCodes()
+      .then((data) => applyBillCodes(seq, data, false))
+      .catch((err) => billFailed(seq, err));
+    return () => {
+      billSeq.current++; // leaving the step: an answer still on its way is dropped
+      // ...and the next visit starts unread, so its draft waits for the fresh read
+      setStepLoads((l) => ({ ...l, bills: false }));
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- toast is stable; reload on step/entity only
   }, [current, token, state.entity.id]);
 
@@ -1896,6 +1953,8 @@ export default function OnboardingApp() {
         deliveryMethods: state.pettyCash.deliveryMethods,
       }),
     skipOpeningBalance,
+    reloadPettyCodes,
+    reloadBillCodes,
     // An empty balance is not sent (submitOpeningBalance), so nothing about it is saved.
     submitOpeningBalance: async () =>
       savedAs(
