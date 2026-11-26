@@ -6,13 +6,13 @@
 // fresh array. That is the property worth pinning -- a `methods.splice(...)` in place
 // would appear to work in the browser and silently fail to re-render.
 //
-// Drag and drop is driven with fireEvent rather than userEvent: jsdom implements no
-// HTML5 drag protocol, so the dataTransfer object is supplied by hand. That means
-// these tests check the component's REORDER LOGIC, not that a real mouse drag works.
+// Dragging is pointer events on the handle (mouse, finger and pen alike; owner, 2026-11-26).
+// jsdom has no PointerEvent and no layout, so a MouseEvent stands in for it and each row is given
+// a 50px box by hand: these tests check the REORDER LOGIC; e2e/sales-methods.spec.ts drags for real.
 
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { MethodList } from "../steps/pettyCashFields";
 
 const METHODS = ["Cash", "Octopus", "FPS"];
@@ -175,22 +175,132 @@ describe("removing", () => {
   });
 });
 
-describe("reordering by drag", () => {
-  /** jsdom has no DragEvent, so the transfer object is supplied by hand. */
-  const transfer = () => ({
-    effectAllowed: "",
-    dropEffect: "",
-    setData: vi.fn(),
-    getData: vi.fn(),
+describe("rows (owner, 2026-11-26)", () => {
+  it("draws each method as a full-width row, not a chip", () => {
+    const { container, rows } = setup();
+    expect(container.querySelector("ul.method-list")).toBeTruthy();
+    expect(rows()).toHaveLength(3);
+    expect(container.querySelector(".pc-chip")).toBeNull();
+    METHODS.forEach((m, i) => {
+      const row = rows()[i] as HTMLElement;
+      expect(within(row).getByRole("button", { name: "Drag to reorder " + m })).toBeInTheDocument();
+      expect(within(row).getByRole("button", { name: "Delete " + m })).toBeInTheDocument();
+    });
   });
 
+  it("draws no list at all while it is empty", () => {
+    const { container } = setup({ methods: [] });
+    expect(container.querySelector("ul.method-list")).toBeNull();
+  });
+});
+
+describe("the Add button and a new row", () => {
+  const field = () => screen.getByPlaceholderText("Enter method name");
+  const addButton = () => screen.getByRole("button", { name: /Add/ });
+
+  // Always the primary button: its disabled state is the app's grey, not-allowed look (globals.css
+  // `.btn-primary[disabled]`). The outline button had no disabled look and seemed clickable.
+  it("is a disabled primary while empty or a duplicate, and enabled once a new name is typed", async () => {
+    setup();
+    expect(addButton()).toBeDisabled();
+    expect(addButton()).toHaveClass("btn-primary");
+    expect(addButton()).not.toHaveClass("btn-ghost");
+    await userEvent.type(field(), "PayMe");
+    expect(addButton()).toBeEnabled();
+    expect(addButton()).toHaveClass("btn-primary");
+    await userEvent.clear(field());
+    await userEvent.type(field(), "octopus");
+    expect(addButton()).toBeDisabled();
+  });
+
+  it("keeps the focus in the field after Add is clicked", async () => {
+    setup();
+    await userEvent.type(field(), "PayMe");
+    await userEvent.click(addButton());
+    expect(field()).toHaveFocus();
+    expect(field()).toHaveValue("");
+  });
+
+  it("highlights the new row for 1.5 seconds", () => {
+    vi.useFakeTimers();
+    try {
+      const onAdd = vi.fn();
+      const { rerender, container } = render(
+        <MethodList title="Electronic" methods={METHODS} onAdd={onAdd} onChange={vi.fn()} />,
+      );
+      fireEvent.change(field(), { target: { value: "PayMe" } });
+      fireEvent.click(addButton());
+      // The parent owns the data: it hands the list back with the new method.
+      rerender(
+        <MethodList
+          title="Electronic"
+          methods={[...METHODS, "PayMe"]}
+          onAdd={onAdd}
+          onChange={vi.fn()}
+        />,
+      );
+      const fresh = () => container.querySelectorAll(".method-row.is-new");
+      expect(fresh()).toHaveLength(1);
+      expect(fresh()[0]).toHaveTextContent("PayMe");
+      act(() => {
+        vi.advanceTimersByTime(1400);
+      });
+      expect(fresh()).toHaveLength(1);
+      act(() => {
+        vi.advanceTimersByTime(200);
+      });
+      expect(fresh()).toHaveLength(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe("reordering by drag", () => {
+  // jsdom has no PointerEvent: a MouseEvent carries clientY and button, the rest is assigned on.
+  beforeAll(() => {
+    if (!("PointerEvent" in window)) {
+      class FakePointerEvent extends MouseEvent {
+        pointerId: number;
+        pointerType: string;
+        constructor(type: string, init: PointerEventInit = {}) {
+          super(type, init);
+          this.pointerId = init.pointerId ?? 1;
+          this.pointerType = init.pointerType ?? "mouse";
+        }
+      }
+      (window as unknown as { PointerEvent: unknown }).PointerEvent = FakePointerEvent;
+    }
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  /** Gives row i the box 50*i .. 50*i+50 (jsdom lays nothing out). */
+  function layOut(rows: Element[]) {
+    rows.forEach((r, i) =>
+      vi.spyOn(r, "getBoundingClientRect").mockReturnValue({
+        top: i * 50,
+        bottom: i * 50 + 50,
+        height: 50,
+        left: 0,
+        right: 300,
+        width: 300,
+        x: 0,
+        y: i * 50,
+        toJSON: () => ({}),
+      } as DOMRect),
+    );
+  }
+  const handleOf = (row: Element) =>
+    within(row as HTMLElement).getByRole("button", { name: /Drag to reorder/ });
+
   function drag(rows: Element[], from: number, to: number) {
-    const handle = within(rows[from] as HTMLElement).getByRole("button", {
-      name: /Drag to reorder/,
-    });
-    fireEvent.dragStart(handle, { dataTransfer: transfer() });
-    fireEvent.dragOver(rows[to], { dataTransfer: transfer() });
-    fireEvent.drop(rows[to], { dataTransfer: transfer() });
+    layOut(rows);
+    const handle = handleOf(rows[from]);
+    fireEvent.pointerDown(handle, { clientY: from * 50 + 25, button: 0 });
+    fireEvent.pointerMove(handle, { clientY: to * 50 + 25 });
+    fireEvent.pointerUp(handle, { clientY: to * 50 + 25 });
   }
 
   it("moves an item down the list", () => {
@@ -211,61 +321,68 @@ describe("reordering by drag", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  it("does nothing when a drop arrives with no drag in progress", () => {
+  it("does nothing when the pointer is lifted with no drag in progress", () => {
     const { rows, onChange } = setup();
-    fireEvent.drop(rows()[1], { dataTransfer: transfer() });
+    fireEvent.pointerUp(handleOf(rows()[1]), { clientY: 10 });
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  it("marks the dragged row and the row under the cursor", () => {
+  it("past the ends, drops at the first or the last place", () => {
+    const { rows, onChange } = setup();
+    layOut(rows());
+    const handle = handleOf(rows()[1]);
+    fireEvent.pointerDown(handle, { clientY: 75, button: 0 });
+    fireEvent.pointerMove(handle, { clientY: 900 });
+    fireEvent.pointerUp(handle, { clientY: 900 });
+    expect(onChange).toHaveBeenLastCalledWith(["Cash", "FPS", "Octopus"]);
+  });
+
+  it("marks the dragged row and the row under the pointer", () => {
     const { rows } = setup();
-    const handle = within(rows()[0] as HTMLElement).getByRole("button", {
-      name: /Drag to reorder/,
-    });
-    fireEvent.dragStart(handle, { dataTransfer: transfer() });
-    fireEvent.dragOver(rows()[2], { dataTransfer: transfer() });
+    layOut(rows());
+    const handle = handleOf(rows()[0]);
+    fireEvent.pointerDown(handle, { clientY: 25, button: 0 });
+    fireEvent.pointerMove(handle, { clientY: 125 });
     expect(rows()[0].className).toContain("is-dragging");
     expect(rows()[2].className).toContain("is-drag-over");
     // Never both on the same row.
-    fireEvent.dragOver(rows()[0], { dataTransfer: transfer() });
+    fireEvent.pointerMove(handle, { clientY: 25 });
     expect(rows()[0].className).not.toContain("is-drag-over");
   });
 
-  it("clears the markers when the drag ends without a drop", () => {
-    const { rows, container } = setup();
-    const handle = within(rows()[0] as HTMLElement).getByRole("button", {
-      name: /Drag to reorder/,
-    });
-    fireEvent.dragStart(handle, { dataTransfer: transfer() });
-    fireEvent.dragOver(rows()[1], { dataTransfer: transfer() });
-    fireEvent.dragEnd(handle);
+  it("a cancelled pointer drops the drag with no change", () => {
+    const { rows, container, onChange } = setup();
+    layOut(rows());
+    const handle = handleOf(rows()[0]);
+    fireEvent.pointerDown(handle, { clientY: 25, button: 0 });
+    fireEvent.pointerMove(handle, { clientY: 125 });
+    fireEvent.pointerCancel(handle);
     expect(container.querySelector(".is-dragging")).toBeNull();
     expect(container.querySelector(".is-drag-over")).toBeNull();
+    expect(onChange).not.toHaveBeenCalled();
   });
 
-  it("clears the hover marker on drag leave", () => {
-    const { rows, container } = setup();
-    const handle = within(rows()[0] as HTMLElement).getByRole("button", {
-      name: /Drag to reorder/,
-    });
-    fireEvent.dragStart(handle, { dataTransfer: transfer() });
-    fireEvent.dragOver(rows()[1], { dataTransfer: transfer() });
-    fireEvent.dragLeave(rows()[1]);
-    expect(container.querySelector(".is-drag-over")).toBeNull();
+  it("Escape during a drag drops it with no change", () => {
+    const { rows, container, onChange } = setup();
+    layOut(rows());
+    const handle = handleOf(rows()[0]);
+    fireEvent.pointerDown(handle, { clientY: 25, button: 0 });
+    fireEvent.pointerMove(handle, { clientY: 125 });
+    fireEvent.keyDown(handle, { key: "Escape" });
+    fireEvent.pointerUp(handle, { clientY: 125 });
+    expect(container.querySelector(".is-dragging")).toBeNull();
+    expect(onChange).not.toHaveBeenCalled();
   });
 
-  it("survives a drag event with no dataTransfer at all", () => {
-    // Some browsers and some synthetic events omit it; the guards exist for that.
-    const { rows, onChange } = setup();
-    const handle = within(rows()[0] as HTMLElement).getByRole("button", {
-      name: /Drag to reorder/,
-    });
-    expect(() => {
-      fireEvent.dragStart(handle);
-      fireEvent.dragOver(rows()[1]);
-      fireEvent.drop(rows()[1]);
-    }).not.toThrow();
-    expect(onChange).toHaveBeenCalledWith(["Octopus", "Cash", "FPS"]);
+  it("ignores a right-click", () => {
+    const { rows, container, onChange } = setup();
+    layOut(rows());
+    const handle = handleOf(rows()[0]);
+    fireEvent.pointerDown(handle, { clientY: 25, button: 2 });
+    fireEvent.pointerMove(handle, { clientY: 125 });
+    fireEvent.pointerUp(handle, { clientY: 125 });
+    expect(container.querySelector(".is-dragging")).toBeNull();
+    expect(onChange).not.toHaveBeenCalled();
   });
 
   it("does not mutate the array it was given", () => {
@@ -277,20 +394,21 @@ describe("reordering by drag", () => {
     const rows = Array.from(container.querySelectorAll(".method-row"));
     drag(rows, 0, 2);
     expect(methods).toEqual(METHODS);
+    expect(onChange.mock.calls[0][0]).not.toBe(methods);
   });
 
-  it("moves a chip with the arrow keys for keyboard users", () => {
+  it("moves a row with the arrow keys for keyboard users", () => {
     const { rows, onChange } = setup();
-    const handle = within(rows()[0] as HTMLElement).getByRole("button", {
-      name: /Drag to reorder/,
-    });
+    const handle = handleOf(rows()[0]);
+    fireEvent.keyDown(handle, { key: "ArrowDown" });
+    expect(onChange).toHaveBeenLastCalledWith(["Octopus", "Cash", "FPS"]);
+    fireEvent.keyDown(handleOf(rows()[2]), { key: "ArrowUp" });
+    expect(onChange).toHaveBeenLastCalledWith(["Cash", "FPS", "Octopus"]);
+    // Left and Right still work.
     fireEvent.keyDown(handle, { key: "ArrowRight" });
     expect(onChange).toHaveBeenLastCalledWith(["Octopus", "Cash", "FPS"]);
-    const last = within(rows()[2] as HTMLElement).getByRole("button", { name: /Drag to reorder/ });
-    fireEvent.keyDown(last, { key: "ArrowLeft" });
-    expect(onChange).toHaveBeenLastCalledWith(["Cash", "FPS", "Octopus"]);
     onChange.mockClear();
-    fireEvent.keyDown(handle, { key: "ArrowLeft" });
+    fireEvent.keyDown(handle, { key: "ArrowUp" });
     expect(onChange).not.toHaveBeenCalled();
   });
 });

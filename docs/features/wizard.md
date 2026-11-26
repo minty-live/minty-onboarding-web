@@ -234,9 +234,17 @@ company chose its Petty Cash codes in X3, so its step 6 stays the daily-closing 
 (and its hint: "Filled for <business>. Revert empties the list(s) again."): free lists (no
 account link), one card per ticked sales account (`MethodList` in
 `components/steps/pettyCashFields.tsx`: the card's badge, "For your Sales - … account", the methods
-as chips in a list labelled "<title> methods" - x removes one, drag a chip or press the arrow keys
-on it to reorder - and an always-there add field with "+ Add"; a name already in the list is
-refused as you type). An unticked account's list is hidden and posted empty; Cash is a card with
+as full-width rows in a list labelled "<title> methods" (2026-11-26, owner; chips before), like the
+account-code list - a grip handle (two columns of dots, `Icon.Grip`), the name, a trash delete; drag
+the handle with a mouse, finger or pen (pointer events, `touch-action: none` on the handle only, so
+phones reorder too; the row lifts and follows the pointer, the row under it is tinted, Escape or a
+cancelled pointer drops the drag) or press the arrow keys on it - and an always-there add field with
+"+ Add", primary once something is typed and disabled while empty; a name already in the list is
+refused as you type). After an add the field empties and keeps the focus, and the new row is lit
+mint for 1.5 s (no toast). **Auto Fill's shimmer (2026-11-26, owner):** with every shown list empty
+and Auto Fill not pressed for 5 s, a mint band sweeps across the button every 4 s (`AutofillButton`'s
+`shimmer`, hidden on hover and under reduced motion); a click on Auto Fill or the first method added
+stops it for this visit, and a page that opens with methods never starts it. An unticked account's list is hidden and posted empty; Cash is a card with
 nothing to add (hidden when Cash is unticked); a plain info note ends the lists. With only Cash
 ticked there is no list and no Auto Fill. Restaurant & Food and a company with no business type:
 **Electronic** and **Delivery** (Auto Fill: the old defaults). A retail shop, a service or a general business
@@ -246,7 +254,8 @@ Alipay, WeChat Pay, Octopus, FPS), posted as
 `electronic` with `delivery: []`. Petty Cash's daily closing, reports and Settings group them the
 same way. Tests: `components/__tests__/AccountingSetup.test.tsx`, `lib/__tests__/wizardSteps.test.ts`,
 `components/__tests__/StepSalesSetting.test.tsx` (Auto Fill's lists per business type; the lists per
-tick), `components/__tests__/MethodList.test.tsx`. A retail shop that ticks Delivery gets the
+tick; the shimmer), `components/__tests__/MethodList.test.tsx`, `components/__tests__/AutofillButton.test.tsx`,
+`e2e/sales-methods.spec.ts` (add, shimmer, touch and mouse drag, 44px targets). A retail shop that ticks Delivery gets the
 Delivery list beside its Non-cash list.
 
 ## Saving and resuming

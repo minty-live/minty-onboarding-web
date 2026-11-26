@@ -1,7 +1,9 @@
 /**
  * The one Auto Fill button (Figma component 47:79, "Auto Fill button"): white with a mint edge, the
  * Minty mark, the label and a sparkle; once filled it turns mint and reads "Revert". Petty Cash
- * Settings and Accounting Setup's account lists (4.3, 4.4) both draw it - change it here.
+ * Settings and Accounting Setup's account lists (4.3, 4.4) both draw it - change it here. `shimmer`
+ * runs a light sweep across it every few seconds (Sales methods' nudge, owner 2026-11-26); off by
+ * default, and never under reduced motion (globals.css).
  */
 import Icon from "./Icon";
 
@@ -10,6 +12,7 @@ export default function AutofillButton({
   onClick,
   disabled = false,
   label,
+  shimmer = false,
 }: {
   /** Filled: mint, and the label reads "Revert". */
   active: boolean;
@@ -17,11 +20,13 @@ export default function AutofillButton({
   disabled?: boolean;
   /** What a screen reader hears, when the visible word alone isn't enough. */
   label?: string;
+  /** A light sweep across the button every few seconds, to point at it. */
+  shimmer?: boolean;
 }) {
   return (
     <button
       type="button"
-      className={"autofill-btn" + (active ? " is-active" : "")}
+      className={"autofill-btn" + (active ? " is-active" : "") + (shimmer ? " is-shimmer" : "")}
       onClick={onClick}
       disabled={disabled}
       aria-pressed={active}

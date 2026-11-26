@@ -198,19 +198,15 @@ const Icon = {
       <path d="M10 11v6M14 11v6" />
     </svg>
   ),
+  /** The drag handle: two columns of three dots. */
   Grip: (p: SvgProps) => (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      {...p}
-    >
-      <path d="M4 7h16M4 12h16M4 17h16" />
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none" {...p}>
+      <circle cx="9" cy="6" r="1.75" />
+      <circle cx="15" cy="6" r="1.75" />
+      <circle cx="9" cy="12" r="1.75" />
+      <circle cx="15" cy="12" r="1.75" />
+      <circle cx="9" cy="18" r="1.75" />
+      <circle cx="15" cy="18" r="1.75" />
     </svg>
   ),
 };

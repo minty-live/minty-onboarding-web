@@ -6,7 +6,15 @@
 
 // --- Step 4: Petty Cash Settings ---
 
-import { useState, useId, type DragEvent, type ReactNode, type Ref } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+  type Ref,
+} from "react";
 import Icon from "../Icon";
 import MintySelect, { type SelectOption } from "../MintySelect";
 import { UUID_RE } from "../../lib/validation";
@@ -61,9 +69,11 @@ type MethodListProps = {
   account?: string;
 };
 
-/** Step 5's method list (Figma 464:73 row 2, owner 2026-11-17): a card per sales account, the
- * methods as chips (x removes one; drag a chip, or press the arrow keys on it, to reorder), and an
- * always-there add field with "+ Add" beside it. */
+/** Step 5's method list (Figma 464:73 row 2; rows since 2026-11-26, owner): a card per sales account,
+ * the methods as full-width rows like the account-code list - a grip handle to drag (mouse, finger or
+ * pen: pointer events, so phones can reorder too) or move with the arrow keys, the name, and a delete
+ * - and an always-there add field with "+ Add" beside it, filled once something is typed. A method
+ * just added is lit for a moment and the field keeps the focus for the next one. */
 export function MethodList({
   title,
   methods,
@@ -77,9 +87,19 @@ export function MethodList({
   const [name, setName] = useState("");
   // A name typed but not added yet is kept in the step's auto-saved draft (lib/stepDraft.ts).
   useStepDraftField(`method:${title}`, name, setName);
-  const [dragIdx, setDragIdx] = useState<number | null>(null);
-  const [overIdx, setOverIdx] = useState<number | null>(null);
   const inputId = useId();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+
+  // ---- the row just added: lit for 1.5 s ----
+  const [fresh, setFresh] = useState<string | null>(null);
+  const freshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (freshTimer.current) clearTimeout(freshTimer.current);
+    },
+    [],
+  );
 
   const remove = (i: number) => {
     const copy = methods.slice();
@@ -94,37 +114,60 @@ export function MethodList({
     onChange(copy);
   };
 
-  const onDragStart = (i: number) => (e: DragEvent) => {
-    setDragIdx(i);
-    if (e.dataTransfer) {
-      e.dataTransfer.effectAllowed = "move";
-      try {
-        e.dataTransfer.setData("text/plain", String(i));
-      } catch {}
-    }
+  // ---- dragging by the handle (pointer events: mouse, touch and pen alike) ----
+  // The drag lives in a ref too, so the pointer handlers never read a stale render's state.
+  // The rows' bottoms are measured when the drag starts: once the row moves, its own box would lie.
+  type Drag = { from: number; startY: number; dy: number; bottoms: number[] };
+  const dragRef = useRef<Drag | null>(null);
+  const [drag, setDrag] = useState<Drag | null>(null);
+  const [overIdx, setOverIdx] = useState<number | null>(null);
+  const setDragBoth = (d: Drag | null) => {
+    dragRef.current = d;
+    setDrag(d);
   };
-  const onDragOver = (i: number) => (e: DragEvent) => {
-    e.preventDefault();
-    if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
-    if (overIdx !== i) setOverIdx(i);
+  /** The row under the pointer: the first whose bottom is below it, or the last. */
+  const indexAt = (bottoms: number[], y: number) => {
+    const i = bottoms.findIndex((bottom) => y < bottom);
+    return i === -1 ? bottoms.length - 1 : i;
   };
-  const onDrop = (i: number) => (e: DragEvent) => {
-    e.preventDefault();
-    if (dragIdx !== null) move(dragIdx, i);
-    setDragIdx(null);
+  const endDrag = () => {
+    setDragBoth(null);
     setOverIdx(null);
   };
-  const onDragEnd = () => {
-    setDragIdx(null);
-    setOverIdx(null);
+  const onPointerDown = (i: number) => (e: ReactPointerEvent<HTMLSpanElement>) => {
+    if (e.button !== 0) return; // a right-click opens its menu, not a drag
+    e.preventDefault(); // no text selection while dragging
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    const bottoms = Array.from(listRef.current?.children ?? []).map(
+      (r) => r.getBoundingClientRect().bottom,
+    );
+    setDragBoth({ from: i, startY: e.clientY, dy: 0, bottoms });
+    setOverIdx(i);
+  };
+  const onPointerMove = (e: ReactPointerEvent<HTMLSpanElement>) => {
+    const d = dragRef.current;
+    if (!d) return;
+    setDragBoth({ ...d, dy: e.clientY - d.startY });
+    setOverIdx(indexAt(d.bottoms, e.clientY));
+  };
+  const onPointerUp = (e: ReactPointerEvent<HTMLSpanElement>) => {
+    const d = dragRef.current;
+    if (!d) return;
+    endDrag();
+    move(d.from, indexAt(d.bottoms, e.clientY));
   };
 
   const typed = name.trim();
   const already = typed ? methods.find((m) => m.toLowerCase() === typed.toLowerCase()) : undefined;
+  const canAdd = !!typed && !already;
   const submit = () => {
-    if (!typed || already) return;
+    if (!canAdd) return;
     onAdd(typed);
     setName("");
+    setFresh(typed);
+    if (freshTimer.current) clearTimeout(freshTimer.current);
+    freshTimer.current = setTimeout(() => setFresh(null), 1500);
+    inputRef.current?.focus(); // a click on Add took it: the next method goes straight in
   };
 
   return (
@@ -145,60 +188,71 @@ export function MethodList({
           {account && <span className="pc-method-sub">For your {account} account</span>}
         </span>
       </div>
-      <ul className="pc-chips method-list" aria-label={`${title} methods`}>
-        {methods.map((m, i) => (
-          <li
-            className={
-              "pc-chip method-row" +
-              (dragIdx === i ? " is-dragging" : "") +
-              (overIdx === i && dragIdx !== i ? " is-drag-over" : "")
-            }
-            key={m + i}
-            onDragOver={onDragOver(i)}
-            onDrop={onDrop(i)}
-            onDragLeave={() => {
-              if (overIdx === i) setOverIdx(null);
-            }}
-          >
-            <span
-              className="pc-chip-grab"
-              role="button"
-              tabIndex={0}
-              aria-label={"Drag to reorder " + m}
-              aria-roledescription="Movable chip. Arrow keys move it."
-              draggable
-              onDragStart={onDragStart(i)}
-              onDragEnd={onDragEnd}
-              onKeyDown={(e) => {
-                if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
-                  e.preventDefault();
-                  move(i, i - 1);
-                } else if (e.key === "ArrowRight" || e.key === "ArrowDown") {
-                  e.preventDefault();
-                  move(i, i + 1);
+      {methods.length > 0 && (
+        <ul ref={listRef} className="method-list pc-method-rows" aria-label={`${title} methods`}>
+          {methods.map((m, i) => {
+            const dragging = drag?.from === i;
+            return (
+              <li
+                className={
+                  "method-row" +
+                  (dragging ? " is-dragging" : "") +
+                  (overIdx === i && drag && !dragging ? " is-drag-over" : "") +
+                  (fresh !== null && m === fresh ? " is-new" : "")
                 }
-              }}
-              title="Drag to reorder"
-            >
-              <span className="method-name">{m}</span>
-            </span>
-            <button
-              type="button"
-              className="pc-chip-x"
-              aria-label={"Delete " + m}
-              onClick={() => remove(i)}
-            >
-              <Icon.Close width={14} height={14} />
-            </button>
-          </li>
-        ))}
-      </ul>
+                style={dragging ? { transform: `translateY(${drag.dy}px)` } : undefined}
+                key={m + i}
+              >
+                <span
+                  className="method-drag"
+                  role="button"
+                  tabIndex={0}
+                  aria-label={"Drag to reorder " + m}
+                  aria-roledescription="Movable row. Arrow keys move it."
+                  onPointerDown={onPointerDown(i)}
+                  onPointerMove={onPointerMove}
+                  onPointerUp={onPointerUp}
+                  onPointerCancel={endDrag}
+                  onLostPointerCapture={() => {
+                    if (dragRef.current) endDrag();
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape" && dragRef.current) {
+                      e.preventDefault();
+                      endDrag();
+                    } else if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
+                      e.preventDefault();
+                      move(i, i - 1);
+                    } else if (e.key === "ArrowDown" || e.key === "ArrowRight") {
+                      e.preventDefault();
+                      move(i, i + 1);
+                    }
+                  }}
+                  title="Drag to reorder"
+                >
+                  <Icon.Grip aria-hidden />
+                </span>
+                <span className="method-name">{m}</span>
+                <button
+                  type="button"
+                  className="method-trash"
+                  aria-label={"Delete " + m}
+                  onClick={() => remove(i)}
+                >
+                  <Icon.Trash width={18} height={18} aria-hidden />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
       <div className="pc-add-row">
         <label className="sr-only" htmlFor={inputId}>
           New {title} method
         </label>
         <div className={"field pc-add-field" + (already ? " field-error" : "")}>
           <input
+            ref={inputRef}
             id={inputId}
             type="text"
             placeholder={placeholder}
@@ -217,8 +271,9 @@ export function MethodList({
         </div>
         <button
           type="button"
-          className="btn btn-ghost pc-add-btn"
-          disabled={!typed || !!already}
+          // Always the primary button: disabled, it is the app's grey, not-allowed primary.
+          className="btn btn-primary pc-add-btn"
+          disabled={!canAdd}
           onClick={submit}
         >
           <Icon.Plus width={16} height={16} /> Add

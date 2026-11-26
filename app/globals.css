@@ -1507,6 +1507,47 @@ textarea {
 .autofill-btn.is-active .autofill-logo {
   filter: brightness(0) invert(1);
 }
+/* Auto Fill's nudge (owner, 2026-11-26): a light band sweeps across the whole button every 4 s,
+   over the fill and under the label. Hidden on hover (the hover stays as it was) and under reduced
+   motion. */
+.autofill-btn.is-shimmer::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(
+    105deg,
+    transparent 28%,
+    color-mix(in oklab, var(--color-border-focus) 22%, transparent) 40%,
+    color-mix(in oklab, var(--color-border-focus) 50%, transparent) 50%,
+    color-mix(in oklab, var(--color-border-focus) 22%, transparent) 60%,
+    transparent 72%
+  );
+  background-size: 250% 100%;
+  background-repeat: no-repeat;
+  background-position: 160% 0;
+  animation: autofillShimmer 4s ease-in-out 0.2s infinite;
+}
+.autofill-btn.is-shimmer:hover::before {
+  animation: none;
+  opacity: 0;
+}
+@keyframes autofillShimmer {
+  0% {
+    background-position: 160% 0;
+  }
+  30%,
+  100% {
+    background-position: -60% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .autofill-btn.is-shimmer::before {
+    animation: none;
+    display: none;
+  }
+}
 @keyframes autofillSparkle {
   0%,
   42% {
@@ -5853,85 +5894,85 @@ textarea {
   color: var(--muted);
   overflow-wrap: anywhere;
 }
-.pc-chips {
-  display: flex;
-  flex-wrap: wrap;
+/* The methods as full-width rows (owner, 2026-11-26), like the account-code list: a grip handle, the
+   name, a delete. The handle drags by pointer (mouse, finger, pen); only it stops the page scrolling. */
+.pc-method-rows {
+  border-top: 1px solid var(--line);
+}
+.pc-method-rows .method-row {
   gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.pc-chips:empty {
-  display: none;
-}
-/* .method-list / .method-row are the old rows' classes, kept for the tests: the chip undoes them. */
-.pc-chips.method-list {
-  border-top: 0;
-}
-.pc-chip.method-row,
-.pc-chip.method-row:last-child {
-  display: inline-flex;
-  align-items: center;
-  justify-content: flex-start;
-  max-width: 100%;
-  min-height: 36px;
-  padding: 0;
-  background: var(--surface);
-  border: 1px solid var(--line);
+  padding: 4px 0;
   border-radius: 10px;
 }
-.pc-chip .method-name {
-  flex: none;
-  font-size: 14px;
+.pc-method-rows .method-name {
+  font-size: 14.5px;
   color: var(--ink);
-}
-.pc-chip.method-row.is-dragging {
-  opacity: 0.5;
-}
-.pc-chip.method-row.is-drag-over {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-}
-.pc-chip-grab {
-  display: inline-flex;
-  align-items: center;
-  min-width: 0;
-  min-height: 36px;
-  padding: 0 4px 0 12px;
-  font-size: 14px;
-  cursor: grab;
   overflow-wrap: anywhere;
-  border-radius: 10px;
 }
-.pc-chip-grab:focus-visible,
-.pc-chip-x:focus-visible {
-  outline: 2px solid var(--color-border-focus);
-  outline-offset: 1px;
-}
-.pc-chip-x {
-  display: inline-flex;
+.pc-method-rows .method-drag,
+.pc-method-rows .method-trash {
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
   width: 36px;
   height: 36px;
-  color: var(--muted);
-  background: transparent;
-  border: 0;
+  padding: 0;
   border-radius: 10px;
-  cursor: pointer;
 }
-.pc-chip-x:hover {
-  color: var(--ink);
+.pc-method-rows .method-drag {
+  touch-action: none;
+  color: var(--muted);
+}
+.pc-method-rows .method-drag svg {
+  width: 20px;
+  height: 20px;
+}
+.pc-method-rows .method-drag:focus-visible,
+.pc-method-rows .method-trash:focus-visible {
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: 1px;
 }
 @media (pointer: coarse) {
-  .pc-chip,
-  .pc-chip-grab {
-    min-height: 44px;
-  }
-  .pc-chip-x {
+  .pc-method-rows .method-drag,
+  .pc-method-rows .method-trash {
     width: 44px;
     height: 44px;
+  }
+}
+/* While dragged the row lifts and follows the pointer (translateY is set inline). */
+.pc-method-rows .method-row.is-dragging {
+  position: relative;
+  z-index: 2;
+  opacity: 1;
+  background: var(--color-surface-card);
+  box-shadow: var(--shadow-overlay);
+  transition: none;
+}
+.pc-method-rows .method-row.is-dragging .method-drag {
+  cursor: grabbing;
+  color: var(--ink);
+  background: var(--surface-2);
+}
+.pc-method-rows .method-row.is-drag-over {
+  background: var(--accent-soft);
+}
+/* A method just added is lit for 1.5 s, fading out over its last 0.6 s. */
+.pc-method-rows .method-row.is-new {
+  animation: methodNew 1.5s ease-out forwards;
+}
+@keyframes methodNew {
+  0%,
+  60% {
+    background: var(--accent-soft);
+  }
+  100% {
+    background: transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pc-method-rows .method-row.is-new {
+    animation: none;
+    background: var(--accent-soft);
   }
 }
 .pc-add-row {
@@ -5947,8 +5988,6 @@ textarea {
 .pc-add-btn {
   flex-shrink: 0;
   min-height: 44px;
-  color: var(--accent-ink);
-  border-color: var(--accent);
 }
 .pc-cash-card {
   padding: 16px;

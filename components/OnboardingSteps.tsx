@@ -1324,7 +1324,25 @@ export function StepSalesSetting({
   )[accountingOf(state).businessType || ""];
   const both = ticks.electronic && ticks.delivery;
 
+  // Auto Fill's nudge (owner, 2026-11-26): with nothing added and Auto Fill not pressed for 5 s, a
+  // shimmer runs across the button every few seconds. A click on it or the first method added stops
+  // it for good on this visit; a page that opens with methods never starts it.
+  const listsEmpty =
+    anyList &&
+    (!ticks.electronic || (p.electronicMethods || []).length === 0) &&
+    (!ticks.delivery || (p.deliveryMethods || []).length === 0);
+  const [nudgeOff, setNudgeOff] = useState(false);
+  const [nudgeDue, setNudgeDue] = useState(false);
+  const nudgeWaits = sub === "sales" && listsEmpty && !nudgeOff;
+  useEffect(() => {
+    if (!nudgeWaits) return;
+    const t = setTimeout(() => setNudgeDue(true), 5000);
+    return () => clearTimeout(t);
+  }, [nudgeWaits]);
+  const shimmer = nudgeDue && nudgeWaits;
+
   const resetDefaults = () => {
+    setNudgeOff(true);
     if (isAutofilled) {
       set({
         pettyCash: {
@@ -1437,6 +1455,7 @@ export function StepSalesSetting({
         <div className="autofill-row pc-autofill-row">
           <AutofillButton
             active={isAutofilled}
+            shimmer={shimmer}
             onClick={resetDefaults}
             label={isAutofilled ? "Clear auto-filled methods" : "Auto fill default settings"}
           />
@@ -1457,7 +1476,10 @@ export function StepSalesSetting({
             placeholder="Enter payment method name"
             methods={p.electronicMethods || []}
             autoFilled={isAutofilled}
-            onAdd={(name) => upd("electronicMethods", [...(p.electronicMethods || []), name])}
+            onAdd={(name) => {
+              setNudgeOff(true);
+              upd("electronicMethods", [...(p.electronicMethods || []), name]);
+            }}
             onChange={(list) => upd("electronicMethods", list)}
           />
         )}
@@ -1470,7 +1492,10 @@ export function StepSalesSetting({
             placeholder="Enter delivery method name"
             methods={p.deliveryMethods || []}
             autoFilled={isAutofilled}
-            onAdd={(name) => upd("deliveryMethods", [...(p.deliveryMethods || []), name])}
+            onAdd={(name) => {
+              setNudgeOff(true);
+              upd("deliveryMethods", [...(p.deliveryMethods || []), name]);
+            }}
             onChange={(list) => upd("deliveryMethods", list)}
           />
         )}

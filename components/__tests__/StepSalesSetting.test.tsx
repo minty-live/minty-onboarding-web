@@ -5,7 +5,7 @@
 // default to a date the API then refused as "in the future". A date the user picked, or one a
 // saved draft brought back, is never replaced.
 
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { useEffect, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { StepSalesSetting } from "../OnboardingSteps";
@@ -162,7 +162,8 @@ describe("StepSalesSetting -- the lists follow the sales accounts", () => {
     } as WizardState["accounting"];
     return start;
   }
-  const list = (name: string) => screen.queryByRole("list", { name: `${name} methods` });
+  // A list's card, found by its add field: an empty list draws no rows (owner, 2026-11-26).
+  const list = (name: string) => screen.queryByLabelText(`New ${name} method`);
 
   it("shows Electronic, Delivery and the Cash card for Restaurant & Food by default", () => {
     serverToday("2001-02-03");
@@ -277,5 +278,78 @@ describe("StepSalesSetting -- Sales, then Opening Balance", () => {
     fireEvent.click(screen.getByRole("button", { name: /Save & Next/ }));
     await waitFor(() => expect(next).toHaveBeenCalledTimes(1));
     expect(submitOpeningBalance).toHaveBeenCalled();
+  });
+});
+
+// Auto Fill's nudge (owner, 2026-11-26): with nothing added and Auto Fill not pressed for 5 seconds,
+// a shimmer runs across the button every few seconds; it stops for good on a click or the first add.
+describe("StepSalesSetting -- Auto Fill's shimmer", () => {
+  function startWith(electronic: string[]) {
+    const start = initialState();
+    start.accounting = {
+      mode: "minty",
+      businessType: "retail",
+      usesSalesCash: true,
+    } as WizardState["accounting"];
+    start.pettyCash = { ...start.pettyCash, electronicMethods: electronic };
+    return start;
+  }
+  const autoFill = () => document.querySelector(".autofill-btn") as HTMLElement;
+  const shimmering = () => autoFill().classList.contains("is-shimmer");
+  const wait = (ms: number) =>
+    act(() => {
+      vi.advanceTimersByTime(ms);
+    });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("starts after 5 seconds with nothing added", () => {
+    serverToday("2001-02-03");
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    render(<Harness start={startWith([])} />);
+    wait(4900);
+    expect(shimmering()).toBe(false);
+    wait(100);
+    expect(shimmering()).toBe(true);
+  });
+
+  it("stops for good once Auto Fill is clicked", () => {
+    serverToday("2001-02-03");
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    render(<Harness start={startWith([])} />);
+    wait(5000);
+    fireEvent.click(autoFill());
+    expect(shimmering()).toBe(false);
+    // Revert empties the list again: still no shimmer.
+    fireEvent.click(autoFill());
+    expect(latest.pettyCash.electronicMethods).toEqual([]);
+    wait(20000);
+    expect(shimmering()).toBe(false);
+  });
+
+  it("stops at the first method added", () => {
+    serverToday("2001-02-03");
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    render(<Harness start={startWith([])} />);
+    wait(5000);
+    fireEvent.change(screen.getByPlaceholderText("Enter payment method name"), {
+      target: { value: "PayMe" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Add/ }));
+    expect(latest.pettyCash.electronicMethods).toEqual(["PayMe"]);
+    expect(shimmering()).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "Delete PayMe" }));
+    wait(20000);
+    expect(shimmering()).toBe(false);
+  });
+
+  it("never runs on a page that opens with methods", () => {
+    serverToday("2001-02-03");
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    render(<Harness start={startWith(["Visa"])} />);
+    wait(20000);
+    expect(shimmering()).toBe(false);
   });
 });
