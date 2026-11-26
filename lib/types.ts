@@ -99,6 +99,8 @@ export type PettyCashForm = {
    * normalised to 2dp only in the request body.
    */
   openingBalance?: string | number;
+  /** "Skip for now" was pressed (owner, 2026-11-26): the balance stays not set, step 5 is done. */
+  openingSkipped?: boolean;
 };
 
 export type BillsForm = {
@@ -261,6 +263,8 @@ export type StepProps = {
   submitModule: () => Promise<Result>;
   submitSalesMethods: () => Promise<Result>;
   submitOpeningBalance: () => Promise<Result>;
+  /** Step 5's "Skip for now": the balance stays not set; the first petty cash report asks for it. */
+  skipOpeningBalance: () => Promise<Result>;
   submitAccountCodes: () => Promise<Result>;
   submitContacts: () => Promise<Result>;
   createContact: (name: string) => Promise<ContactResult>;

@@ -64,6 +64,8 @@ type StepNavProps = {
   saving: boolean;
   /** Only the steps that can be last pass this; undefined falls through to "Save & Next". */
   isLastContentStep?: boolean;
+  /** "Skip for now" beside Save & Exit (step 5's Opening Balance, owner 2026-11-26). */
+  skip?: { label?: string; onSkip: () => void; busy?: boolean };
 };
 
 export function StepNav({
@@ -73,6 +75,7 @@ export function StepNav({
   tryNext,
   saving,
   isLastContentStep,
+  skip,
 }: StepNavProps) {
   return (
     <div className="step-nav">
@@ -80,6 +83,16 @@ export function StepNav({
         <Icon.ArrowLeft /> Back
       </button>
       <div className="step-actions">
+        {skip && (
+          <button
+            type="button"
+            className="btn-link-center step-skip"
+            onClick={skip.onSkip}
+            disabled={saving || skip.busy}
+          >
+            {skip.busy ? "Skipping…" : (skip.label ?? "Skip for now")}
+          </button>
+        )}
         <SaveExitLink saveAndExit={saveAndExit} submitFn={stepSubmit} disabled={saving} />
         <button className="btn btn-primary" onClick={tryNext} disabled={saving}>
           {saving ? (

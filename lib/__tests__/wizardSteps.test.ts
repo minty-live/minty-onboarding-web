@@ -437,6 +437,15 @@ describe("isStepComplete", () => {
     it("is not fooled by a missing pettyCash object", () => {
       expect(isStepComplete(5, state({ pettyCash: undefined }))).toBe(false);
     });
+
+    // Skip for now (the user, 2026-11-26): the balance stays not set and the first petty cash
+    // report asks for it, so a skipped step counts as done.
+    it("is complete when skipped, with no balance", () => {
+      const skipped = state({
+        pettyCash: { ...initialState().pettyCash, openingBalance: "", openingSkipped: true },
+      });
+      expect(isStepComplete(5, skipped)).toBe(true);
+    });
   });
 
   it.each([6, 7, 8])("step %i always passes -- it has defaults for everything", (id) => {

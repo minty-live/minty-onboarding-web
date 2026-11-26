@@ -104,6 +104,8 @@ export type OnboardingState = {
   xero: XeroState;
   sales_methods: SalesMethods;
   opening_balance: OpeningBalance | null;
+  /** "Skip for now" was pressed on step 5 and no balance is saved since (2026-11-26). */
+  opening_skipped?: boolean;
   /** Empty when the caller may not list invites -- a permission gap must not fail resume. */
   invites: Invitation[];
   /** Step 4's answers (Accounting Setup, Xero optional). Absent from an older API. */

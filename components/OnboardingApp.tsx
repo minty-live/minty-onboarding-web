@@ -281,7 +281,9 @@ export default function OnboardingApp() {
   };
 
   const next = () => {
-    if (!isStepComplete(current, state)) return;
+    // stateRef, not `state`: a writer that just changed the state and moves on in the same tick
+    // (step 5's Skip for now) is judged on what it wrote.
+    if (!isStepComplete(current, stateRef.current)) return;
     // The step is done (its own save succeeded before this): its draft goes.
     stepDraftClear.current?.();
     const n = nextActiveId(current);
@@ -454,6 +456,8 @@ export default function OnboardingApp() {
           ...(obAmount !== undefined && obAmount !== null
             ? { openingBalance: String(obAmount) }
             : {}),
+          // Step 5 skipped, no balance since (2026-11-26): the step counts as done.
+          ...(payload.opening_skipped ? { openingSkipped: true } : {}),
         },
       };
       stateRef.current = nextState;
@@ -1178,6 +1182,43 @@ export default function OnboardingApp() {
           ok: false,
           error: friendlyError(data, "I couldn't save that opening balance. Mind trying again?"),
         };
+      // A saved balance is no longer skipped (the API clears its mark too).
+      if (state.pettyCash.openingSkipped)
+        setState((s) => ({ ...s, pettyCash: { ...s.pettyCash, openingSkipped: false } }));
+      return { ok: true };
+    } catch {
+      return { ok: false, error: "I couldn't reach the server. Mind trying again?" };
+    }
+  };
+
+  // Step 5's "Skip for now" (owner, 2026-11-26): the balance stays NOT SET (never 0) and the first
+  // petty cash report asks for it; the API remembers the skip, so the wizard resumes past step 5.
+  const skipOpeningBalance = async (): Promise<Result> => {
+    if (!token || !state.entity.id)
+      return { ok: false, error: "I couldn't reach the server. Mind trying again?" };
+    try {
+      const res = await onboardingFetch(urlFor(`/api/onboarding/opening-balance/skip`), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ entity_id: state.entity.id }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok)
+        return {
+          ok: false,
+          error: friendlyError(data, "I couldn't skip that just now. Mind trying again?"),
+        };
+      // A company that already has a saved balance keeps it (the API answers skipped: false):
+      // nothing on screen is cleared and the step is done on that balance.
+      if (data?.skipped === false) return { ok: true };
+      const prev = stateRef.current;
+      const nextState: WizardState = {
+        ...prev,
+        pettyCash: { ...prev.pettyCash, openingBalance: "", openingDate: "", openingSkipped: true },
+      };
+      stateRef.current = nextState;
+      setState(nextState);
+      serverSaved(5, { openingBalance: "", openingDate: "" });
       return { ok: true };
     } catch {
       return { ok: false, error: "I couldn't reach the server. Mind trying again?" };
@@ -1854,6 +1895,7 @@ export default function OnboardingApp() {
         electronicMethods: state.pettyCash.electronicMethods,
         deliveryMethods: state.pettyCash.deliveryMethods,
       }),
+    skipOpeningBalance,
     // An empty balance is not sent (submitOpeningBalance), so nothing about it is saved.
     submitOpeningBalance: async () =>
       savedAs(

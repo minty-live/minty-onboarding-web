@@ -229,6 +229,20 @@ company chose its Petty Cash codes in X3, so its step 6 stays the daily-closing 
 `components/__tests__/StepSalesSetting.test.tsx` (Sales, then Opening Balance),
 `components/__tests__/StepPettyCodes.test.tsx`, `lib/__tests__/wizardSteps.test.ts`.
 
+**Opening Balance (owner, 2026-11-26).** "Tell Minty how much cash you're starting with."; **Start
+date** (the server's today by default, no TODAY badge: `MintyDatePicker`'s `todayTag={false}`) and
+**Cash in your petty cash box on that day** (required). The ⓘ box: "Count the cash in your petty cash
+box at the start of that day and enter it here. Minty tracks every expense and top-up from this
+amount." plus **Watch how (1 min)**, a video pop-up (`components/steps/OpeningVideo.tsx`) drawn only
+once `lib/videos.ts`'s `OPENING_BALANCE_VIDEO` has the team's video URL (null until then: no link).
+**Skip for now** (beside Save & Exit, `StepNav`'s `skip`) posts `/opening-balance/skip`: the balance
+stays **not set** (never 0), the step's draft is cleared, `pettyCash.openingSkipped` makes step 5
+complete (`isStepComplete`) and the wizard moves on; a refusal is a toast and the page stays. Resume
+reads `GET /state`'s `opening_skipped`. A balance saved later clears the skip (both here and in the
+API). The company's first petty cash report then asks for the date and the amount (minty-petty-cash-web,
+`PUT /opening-balance`). Tests: `StepSalesSetting.test.tsx`, `MintyDatePicker.test.tsx`,
+`OpeningVideo.test.tsx`, `wizardSteps.test.ts`, e2e `opening-balance.spec.ts` (360 and 1440 px).
+
 **Step 5's sales methods follow the business type (owner, 2026-11-11) and the sales accounts
 (owner, 2026-11-17; Figma 464:73 row 2).** "Type of sales method of your company", with Auto Fill
 (no caption since 2026-11-26): free lists (no

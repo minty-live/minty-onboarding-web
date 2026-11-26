@@ -222,10 +222,14 @@ describe("StepSalesSetting -- the lists follow the sales accounts", () => {
 // Opening Balance is its own sub-step (owner, 2026-11-18): Sales first - its Save & Next saves the
 // methods and opens Opening Balance, whose Back returns to Sales and whose Save & Next moves on.
 describe("StepSalesSetting -- Sales, then Opening Balance", () => {
-  function renderSteps() {
+  function renderSteps(
+    skipResult: () => Promise<{ ok: true } | { ok: false; error: string }> = () =>
+      Promise.resolve({ ok: true as const }),
+  ) {
     const next = vi.fn();
     const submitSalesMethods = vi.fn(() => Promise.resolve({ ok: true as const }));
     const submitOpeningBalance = vi.fn(() => Promise.resolve({ ok: true as const }));
+    const skipOpeningBalance = vi.fn(skipResult);
     function Steps() {
       const [state, setState] = useState<WizardState>(initialState());
       useEffect(() => remember(state), [state]);
@@ -240,13 +244,14 @@ describe("StepSalesSetting -- Sales, then Opening Balance", () => {
             back={vi.fn()}
             submitSalesMethods={submitSalesMethods}
             submitOpeningBalance={submitOpeningBalance}
+            skipOpeningBalance={skipOpeningBalance}
             saveAndExit={vi.fn()}
           />
         </ToastProvider>
       );
     }
     render(<Steps />);
-    return { next, submitSalesMethods, submitOpeningBalance };
+    return { next, submitSalesMethods, submitOpeningBalance, skipOpeningBalance };
   }
 
   it("Sales asks no opening balance; its Save & Next saves the methods and opens Opening Balance", async () => {
@@ -276,6 +281,52 @@ describe("StepSalesSetting -- Sales, then Opening Balance", () => {
     fireEvent.click(screen.getByRole("button", { name: /Save & Next/ }));
     await waitFor(() => expect(next).toHaveBeenCalledTimes(1));
     expect(submitOpeningBalance).toHaveBeenCalled();
+  });
+
+  // The page (owner, 2026-11-26): a one-sentence subtitle, "Start date" with no TODAY badge, the
+  // amount's own label, one info box, and Skip for now (the balance then stays not set).
+  async function openOpening(r: ReturnType<typeof renderSteps>) {
+    fireEvent.click(screen.getByRole("button", { name: /Save & Next/ }));
+    await screen.findByText("Petty Cash Opening Balance");
+    return r;
+  }
+
+  it("Opening Balance says what to count, with no TODAY badge", async () => {
+    serverToday("2001-02-03");
+    const { container } = { container: document.body };
+    await openOpening(renderSteps());
+    expect(screen.getByText("Tell Minty how much cash you're starting with.")).toBeInTheDocument();
+    expect(screen.getByText("Start date")).toBeInTheDocument();
+    expect(screen.getByLabelText(/Cash in your petty cash box on that day/)).toHaveAttribute(
+      "aria-required",
+      "true",
+    );
+    expect(screen.getByRole("note")).toHaveTextContent(
+      "Count the cash in your petty cash box at the start of that day and enter it here. Minty tracks every expense and top-up from this amount.",
+    );
+    expect(screen.queryByRole("button", { name: /Watch how/ })).toBeNull();
+    expect(container.querySelector(".mdp-today-tag")).toBeNull();
+    expect(screen.queryByText(/put today/)).toBeNull();
+  });
+
+  it("Skip for now leaves the balance unsaved and moves on", async () => {
+    serverToday("2001-02-03");
+    const r = await openOpening(renderSteps());
+    fireEvent.click(screen.getByRole("button", { name: "Skip for now" }));
+    await waitFor(() => expect(r.next).toHaveBeenCalledTimes(1));
+    expect(r.skipOpeningBalance).toHaveBeenCalledTimes(1);
+    expect(r.submitOpeningBalance).not.toHaveBeenCalled();
+  });
+
+  it("a refused skip says why and stays", async () => {
+    serverToday("2001-02-03");
+    const r = await openOpening(
+      renderSteps(() => Promise.resolve({ ok: false as const, error: "That didn't go through." })),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Skip for now" }));
+    expect(await screen.findByText("That didn't go through.")).toBeInTheDocument();
+    expect(r.next).not.toHaveBeenCalled();
+    expect(screen.getByText("Petty Cash Opening Balance")).toBeInTheDocument();
   });
 });
 

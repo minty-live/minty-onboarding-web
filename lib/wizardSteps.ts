@@ -258,6 +258,9 @@ export function isStepComplete(id: number, state: WizardState): boolean {
         (mintyOnItsOwn(state) && accountingOf(state).usesSalesCash !== null)
       );
     case 5: {
+      // A balance typed, or "Skip for now" (owner, 2026-11-26: it stays not set, and the first
+      // petty cash report asks for it).
+      if (state.pettyCash?.openingSkipped) return true;
       const b = state.pettyCash && state.pettyCash.openingBalance;
       return b !== undefined && b !== null && String(b).trim() !== "";
     }

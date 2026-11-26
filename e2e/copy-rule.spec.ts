@@ -108,6 +108,8 @@ type Screen = {
 };
 
 const nextTo = (heading: string) => async (page: Page) => {
+  // the screen's own reads settle first, or Save & Next lands before the page can save
+  await page.waitForLoadState("networkidle");
   await page
     .getByRole("button", { name: /Save & Next/ })
     .first()
@@ -186,8 +188,9 @@ const SCREENS: Record<string, Screen> = {
     acc: MINTY,
     methods: { electronic: ["Visa"], delivery: [] },
     open: nextTo("Petty Cash Opening Balance"),
-    subtitle: "Set where your petty cash starts.",
-    box: "We've put today's date in — pick another day if you started earlier. The balance is the cash in the box at the start of that day.",
+    subtitle: "Tell Minty how much cash you're starting with.",
+    // no "Watch how (1 min)" while lib/videos.ts has no video
+    box: "Count the cash in your petty cash box at the start of that day and enter it here. Minty tracks every expense and top-up from this amount.",
   },
   "6 Petty Cash Account Code": {
     step: 6,

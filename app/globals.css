@@ -5684,6 +5684,77 @@ textarea {
 .pc-stack > .acs-sa-note.info-box {
   margin-bottom: 0;
 }
+/* "Skip for now" beside Save & Exit (step 5's Opening Balance): a 44px tap target. */
+.step-skip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+}
+/* A link inside the box (Opening Balance's "Watch how (1 min)", owner 2026-11-26): the box's
+   own colour, underlined, a 44px tap target that does not grow the line. */
+.info-box-link {
+  position: relative;
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  color: var(--color-text-link);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.info-box-link::before {
+  content: "";
+  position: absolute;
+  inset: -12px -4px;
+}
+.info-box-link:focus-visible {
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+/* The how-to video pop-up: the title with a close button, the video at the card's width. */
+.video-dialog {
+  width: min(640px, calc(100vw - 32px));
+  max-width: none;
+  padding: 24px;
+}
+.video-dialog-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.video-dialog-head .mw-dialog-title {
+  font-size: 20px;
+}
+.video-dialog-close {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  border-radius: 12px;
+  cursor: pointer;
+}
+.video-dialog-close:hover {
+  color: var(--ink);
+  background: var(--surface-2);
+}
+.video-dialog-player {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+  background: var(--color-surface-sunk);
+}
 
 /* Step 5's sales methods (owner, 2026-11-17; Figma 464:73 row 2): a card per ticked sales account,
    its methods as chips (drag or arrow keys to reorder), an add field with "+ Add", the Cash card. */

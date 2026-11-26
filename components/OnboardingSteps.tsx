@@ -34,6 +34,7 @@ import { useStepDraftField } from "../lib/stepDraft";
 import { toIsoDate } from "../lib/date";
 import { SaveExitLink, StepNav } from "./steps/StepChrome";
 import InfoBox from "./steps/InfoBox";
+import { OpeningVideoLink } from "./steps/OpeningVideo";
 import { ErrorSummary, type SummaryItem } from "./steps/ErrorSummary";
 import {
   MODULES,
@@ -1088,6 +1089,7 @@ export function StepSalesSetting({
   back,
   submitSalesMethods,
   submitOpeningBalance,
+  skipOpeningBalance,
   saveAndExit,
   pettySub,
   setPettySub,
@@ -1095,7 +1097,7 @@ export function StepSalesSetting({
   StepProps,
   "state" | "set" | "next" | "back" | "submitSalesMethods" | "submitOpeningBalance" | "saveAndExit"
 > &
-  Partial<Pick<StepProps, "pettySub" | "setPettySub">>) {
+  Partial<Pick<StepProps, "pettySub" | "setPettySub" | "skipOpeningBalance">>) {
   // Two sub-steps (owner, 2026-11-18): Sales, then Opening Balance - each its own page. The wizard
   // holds which one shows (its side menu lists both); on its own the step starts on Sales.
   const [ownSub, setOwnSub] = useState<PettySub>("sales");
@@ -1236,6 +1238,21 @@ export function StepSalesSetting({
     setSub("opening");
   };
 
+  // "Skip for now" (owner, 2026-11-26): the balance stays not set - the first petty cash report
+  // asks for it - and the wizard moves on. A refusal says why and stays.
+  const [skipping, setSkipping] = useState(false);
+  const skipOpening = async () => {
+    if (!skipOpeningBalance || skipping || saving) return;
+    setSkipping(true);
+    const result = await skipOpeningBalance();
+    setSkipping(false);
+    if (!result?.ok) {
+      toast.error(result.error);
+      return;
+    }
+    next();
+  };
+
   const tryNext = async () => {
     if (balanceEmpty) {
       setShowBalanceError(true);
@@ -1358,12 +1375,13 @@ export function StepSalesSetting({
     <>
       <div className="page-head">
         <h2>Petty Cash Opening Balance</h2>
-        <p>Set where your petty cash starts.</p>
+        <p>Tell Minty how much cash you&apos;re starting with.</p>
       </div>
       <div className="pc-stack">
         <InfoBox>
-          We&apos;ve put today&apos;s date in — pick another day if you started earlier. The balance
-          is the cash in the box at the start of that day.
+          Count the cash in your petty cash box at the start of that day and enter it here. Minty
+          tracks every expense and top-up from this amount.
+          <OpeningVideoLink />
         </InfoBox>
         <div
           className={"pc-card" + (showBalanceError && balanceEmpty ? " is-error" : "")}
@@ -1373,8 +1391,9 @@ export function StepSalesSetting({
             className={"pc-field" + (showDateError && dateIsFuture ? " field-error" : "")}
             ref={dateRef}
           >
-            <div className="pc-sub">Choose the first date that you wish to use</div>
+            <div className="pc-sub">Start date</div>
             <MintyDatePicker
+              todayTag={false}
               value={p.openingDate || ""}
               onChange={(v) => {
                 upd("openingDate", v);
@@ -1390,18 +1409,20 @@ export function StepSalesSetting({
             )}
           </div>
           <div className={"pc-field" + (showBalanceError && balanceEmpty ? " field-error" : "")}>
-            <div className="pc-sub">
-              Choose the beginning petty cash balance of the day
+            <label className="pc-sub" htmlFor="opening-balance-amount">
+              Cash in your petty cash box on that day
               <span className="req" aria-hidden>
                 *
               </span>
-            </div>
+              <span className="sr-only"> (required)</span>
+            </label>
             <div className="field">
               <div className="input-prefix">
                 <div className="prefix">
                   {currencyCode(state.entity.currency, currencyRegistry)}
                 </div>
                 <input
+                  id="opening-balance-amount"
                   placeholder={balanceDecimals > 0 ? `0.${"0".repeat(balanceDecimals)}` : "0"}
                   aria-required="true"
                   {...balanceInput}
@@ -1420,7 +1441,8 @@ export function StepSalesSetting({
         saveAndExit={saveAndExit}
         stepSubmit={stepSubmit}
         tryNext={tryNext}
-        saving={saving}
+        saving={saving || skipping}
+        skip={skipOpeningBalance ? { onSkip: () => void skipOpening(), busy: skipping } : undefined}
       />
     </>
   );

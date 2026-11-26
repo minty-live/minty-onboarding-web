@@ -52,6 +52,8 @@ type MintyDatePickerProps = {
   minDate?: string | number | Date | null;
   /** `YYYY-MM-DD` is parsed as LOCAL midnight; anything else goes through `new Date`. */
   maxDate?: string | number | Date | null;
+  /** The TODAY badge beside a picked today; Opening Balance leaves it out (owner, 2026-11-26). */
+  todayTag?: boolean;
 };
 
 export default function MintyDatePicker({
@@ -60,6 +62,7 @@ export default function MintyDatePicker({
   placeholder = "Select a date",
   minDate,
   maxDate,
+  todayTag = true,
 }: MintyDatePickerProps) {
   const selected = dpParse(value);
   const today = new Date();
@@ -140,7 +143,7 @@ export default function MintyDatePicker({
         <span className={"mdp-value" + (selected ? "" : " placeholder")}>
           {selected ? dpPretty(selected) : placeholder}
         </span>
-        {isToday && <span className="mdp-today-tag">Today</span>}
+        {todayTag && isToday && <span className="mdp-today-tag">Today</span>}
         <span className="mdp-cal-icon" aria-hidden>
           <svg
             width="18"
