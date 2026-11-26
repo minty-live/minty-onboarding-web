@@ -566,21 +566,21 @@ const SALES_ACCOUNTS: {
   {
     key: "cash",
     name: "Sales - Cash",
-    body: "Notes and coins taken at the counter.",
+    body: "Cash received at the counter.",
     part: "Cash Sales",
     icon: "Payments",
   },
   {
     key: "electronic",
     name: "Sales - Electronic Payment",
-    body: "Cards, wallets and transfers — Visa, Alipay, FPS…",
+    body: "Card, e-wallet and bank transfer payments.",
     part: "Electronic Payments",
     icon: "CreditCard",
   },
   {
     key: "delivery",
     name: "Sales - Delivery",
-    body: "Orders through delivery apps — Foodpanda, Keeta…",
+    body: "Orders from delivery apps.",
     part: "Delivery Sales",
     icon: "Delivery",
   },
@@ -626,8 +626,8 @@ function SalesAccountsScreen({
       <div className="page-head acs-head acs-mode-head">
         <h2 id="acs-sales-title">Your sales accounts</h2>
         <p>
-          Minty records your daily sales in three accounts. Tick the ones your business takes — your
-          daily report only asks for those.
+          How do your customers pay you? Tick each one you take — your daily report will ask for
+          these amounts every day.
         </p>
       </div>
       <div

@@ -72,11 +72,14 @@ export async function loadSubscriptions(signal: AbortSignal): Promise<Subscripti
 }
 
 /**
- * The chat's one-tap email (`ContactLauncher`'s `loadEmail`): the wizard's hand-off carries no
- * email, so the person's own profile is read - once a page, and only when Contact Support opens.
+ * The signed-in person's email: the wizard's hand-off carries none, so their own profile is read.
+ * Used by the chat's one-tap email (`ContactLauncher`'s `loadEmail`, only when Contact Support
+ * opens) and by the invite step's "That's you" check.
  */
-export const loadContactEmail = async (): Promise<string | null> =>
+export const loadMyEmail = async (): Promise<string | null> =>
   (await call<Profile>(PROFILE)).user.email || null;
+
+export const loadContactEmail = loadMyEmail;
 
 /** The chat's message; Flask checks it and answers `{sent, reply_to}`. */
 export const sendContact = (message: ContactMessage): Promise<ContactReceipt> =>

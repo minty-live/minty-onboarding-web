@@ -326,6 +326,19 @@ describe("the sales accounts screen", () => {
     expect(screen.getByText("Not on your daily report")).toBeInTheDocument();
   });
 
+  it("says how customers pay, with no brand names (owner, 2026-11-26)", () => {
+    const { view } = renderStep({ mode: "minty", businessType: "retail", usesSalesCash: true });
+    expect(
+      screen.getByText(
+        "How do your customers pay you? Tick each one you take — your daily report will ask for these amounts every day.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Cash received at the counter.")).toBeInTheDocument();
+    expect(screen.getByText("Card, e-wallet and bank transfer payments.")).toBeInTheDocument();
+    expect(screen.getByText("Orders from delivery apps.")).toBeInTheDocument();
+    expect(view.container).not.toHaveTextContent(/Visa|Alipay|FPS|Foodpanda|Keeta/);
+  });
+
   it("'None of these' starts with only Sales - Cash (owner, 2026-11-18)", () => {
     renderStep({ mode: "minty", businessType: null, usesSalesCash: true });
     expect(box(/Sales - Cash/)).toHaveAttribute("aria-checked", "true");

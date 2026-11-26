@@ -28,6 +28,7 @@ import {
   type DialCountry,
 } from "../lib/validation";
 import { useEmailInput } from "../lib/emailInput";
+import { loadMyEmail } from "../lib/profileApi";
 import { inviteExpiryLabel } from "../lib/invites";
 import { useStepDraftField } from "../lib/stepDraft";
 import { toIsoDate } from "../lib/date";
@@ -1508,6 +1509,25 @@ export function StepSalesSetting({
   return salesPage;
 }
 
+// --- The account-code lists' info box (owner, 2026-11-26) ---
+// Above Petty Cash's and Payment Request's account-code lists: where the list comes from, and - when
+// both modules are chosen - that the other module keeps a list of its own.
+function CodesNote({ module, modules }: { module: "pettyCash" | "bills"; modules: ModuleId[] }) {
+  const both = modules.includes("pettyCash") && modules.includes("bills");
+  const text =
+    module === "pettyCash"
+      ? "These come from your Accounting Setup list. Tick the ones staff can choose when they add a petty cash expense." +
+        (both ? " Payment Request has its own list, so you can pick differently there." : "")
+      : "These come from your Accounting Setup list. Tick the ones staff can choose when they add a payment request." +
+        (both ? " Petty Cash has its own list." : "");
+  return (
+    <p className="acs-sa-note pc-sales-note" role="note">
+      <Icon.Info width={18} height={18} aria-hidden />
+      <span>{text}</span>
+    </p>
+  );
+}
+
 // --- Step 6 for Minty on its own: Petty Cash's account codes (owner, 2026-11-18) ---
 // Which of step 4's expense accounts appear when someone adds a petty cash expense - the list
 // Payment Request Settings has for payment requests (StepBills). Ticked as the sheet set them; at
@@ -1572,6 +1592,7 @@ export function StepPettyCodes({
   return (
     <>
       <div className="pc-stack" ref={listRef}>
+        <CodesNote module="pettyCash" modules={state.modules} />
         <AccountCodesCard
           codes={codes}
           labels={labels}
@@ -1734,6 +1755,7 @@ export function StepAccountCode({
               </div>
             </div>
             <div ref={expenseCodesRef}>
+              <CodesNote module="pettyCash" modules={state.modules} />
               <AccountCodesCard
                 codes={expenseCodes}
                 labels={expenseLabels}
@@ -2070,6 +2092,7 @@ export function StepBills({
   return (
     <>
       <div className="pc-stack" ref={billCodesRef}>
+        <CodesNote module="bills" modules={state.modules} />
         <AccountCodesCard
           codes={billCodes}
           labels={billLabels}
@@ -2166,10 +2189,26 @@ export function StepInvite({
   const toggleExpanded = (key: string) =>
     setExpandedRows((prev) => ({ ...prev, [key]: !prev[key] }));
   // The prompt nudging the user to invite an accountant: the later steps need expertise.
-  // Shown automatically on arrival at the Invite step. Its one button, "Ok", only closes it
-  // and the user stays here; there is no Skip (a user with nobody to invite uses "Add later"
-  // at the foot of the page).
+  // Shown automatically on arrival at the Invite step (owner, 2026-11-26): "Go to invite" closes
+  // it and the user stays here (so do Escape and the backdrop); "Skip for now" moves straight on,
+  // as the foot of the page's "Add later" does.
   const [accountantPrompt, setAccountantPrompt] = useState(true);
+  // The signed-in person's own email, so inviting yourself is refused as it is typed (owner,
+  // 2026-11-26). The API refuses it too (409), so a failed read only loses the early message.
+  const [myEmail, setMyEmail] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    loadMyEmail()
+      .then((email) => {
+        if (live) setMyEmail(email);
+      })
+      .catch((err) => {
+        console.error("[onboarding] the signed-in email did not load", err);
+      });
+    return () => {
+      live = false;
+    };
+  }, []);
   const [sending, setSending] = useState(false);
   const setF = (k: keyof typeof form, v: string) => setForm({ ...form, [k]: v });
   const inviteEmail = useEmailInput((v) => setF("email", v));
@@ -2179,10 +2218,13 @@ export function StepInvite({
 
   const emailOk = isEmail(form.email);
   const emailInvalid = emailTouched && form.email.trim() !== "" && !emailOk;
+  const isSelf =
+    myEmail !== null && form.email.trim().toLowerCase() === myEmail.trim().toLowerCase();
   // Don't gate the button on email format — let the user click Send and get an
-  // explicit toast explaining why, instead of a silently-disabled button.
+  // explicit toast explaining why, instead of a silently-disabled button. Your own
+  // email is said under the field at once, and Send waits for another one.
   const canSend =
-    form.first.trim() && form.last.trim() && form.email.trim() && form.role && !sending;
+    form.first.trim() && form.last.trim() && form.email.trim() && form.role && !sending && !isSelf;
 
   const send = async () => {
     if (!canSend) return;
@@ -2341,16 +2383,22 @@ export function StepInvite({
                 *
               </span>
             </label>
-            <div className={"field" + (emailInvalid ? " field-error" : "")}>
+            <div className={"field" + (emailInvalid || isSelf ? " field-error" : "")}>
               <input
                 {...inviteEmail.props}
                 placeholder="Enter email address"
                 value={form.email}
                 onBlur={() => setEmailTouched(true)}
-                aria-invalid={emailInvalid}
+                aria-invalid={emailInvalid || isSelf}
+                aria-describedby={isSelf ? "invite-email-self" : undefined}
                 aria-required="true"
               />
             </div>
+            {isSelf && (
+              <div className="field-required" id="invite-email-self">
+                That&apos;s you — you&apos;re already in this entity. No need to invite yourself.
+              </div>
+            )}
             {inviteEmail.rejected && (
               <div className="field-required" role="status">
                 {EMAIL_ASCII_HINT}
@@ -2484,15 +2532,25 @@ export function StepInvite({
           </h2>
           <img src="/assets/minty-ollie.webp" alt="" className="mw-dialog-art" />
           <p className="mw-dialog-body">
-            Xero recommends you invite your accountant or bookkeeper to assist you with these steps.
+            We recommend inviting your accountant or bookkeeper to help with these steps.
           </p>
-          <div className="mw-dialog-actions is-single">
+          <div className="mw-dialog-actions">
+            <button
+              type="button"
+              className="mw-dialog-btn is-grey"
+              onClick={() => {
+                setAccountantPrompt(false);
+                next();
+              }}
+            >
+              Skip for now
+            </button>
             <button
               type="button"
               className="mw-dialog-btn is-teal"
               onClick={() => setAccountantPrompt(false)}
             >
-              Ok
+              Go to invite
             </button>
           </div>
         </ModalFrame>

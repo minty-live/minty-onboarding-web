@@ -163,7 +163,7 @@ describe("step-local inputs", () => {
   it("the invite form is back as soon as the step opens (kept until it is sent)", async () => {
     payload = companyAt(3);
     const first = mount();
-    await userEvent.click(await screen.findByRole("button", { name: "Ok" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Go to invite" }));
     await userEvent.type(screen.getByPlaceholderText("Enter first name"), "Ann");
     await userEvent.type(screen.getByPlaceholderText("Enter email address"), "ann@example.com");
     first.unmount();
@@ -171,7 +171,7 @@ describe("step-local inputs", () => {
     expect(kept(3)?.value.state).toEqual({}); // invitations are saved as they are sent
 
     mount();
-    await userEvent.click(await screen.findByRole("button", { name: "Ok" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Go to invite" }));
     await waitFor(() =>
       expect((screen.getByPlaceholderText("Enter first name") as HTMLInputElement).value).toBe(
         "Ann",

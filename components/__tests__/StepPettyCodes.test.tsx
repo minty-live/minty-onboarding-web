@@ -16,10 +16,13 @@ const OPTIONS = {
   ],
 } as unknown as AccountOptions;
 
-function renderStep(selected: Record<string, boolean>) {
+function renderStep(
+  selected: Record<string, boolean>,
+  modules: WizardState["modules"] = ["pettyCash"],
+) {
   const next = vi.fn();
   const submitPettyCodes = vi.fn(() => Promise.resolve({ ok: true as const }));
-  let state: WizardState = initialState();
+  let state: WizardState = { ...initialState(), modules };
   state.pettyCash = { ...state.pettyCash, pettyCodes: { all: false, selected } };
   const set = vi.fn((patch) => {
     state = { ...state, ...(typeof patch === "function" ? patch(state) : patch) };
@@ -64,5 +67,20 @@ describe("StepPettyCodes", () => {
     fireEvent.click(screen.getByRole("button", { name: /Save & Next/ }));
     await waitFor(() => expect(next).toHaveBeenCalledTimes(1));
     expect(submitPettyCodes).toHaveBeenCalledTimes(1);
+  });
+
+  const NOTE =
+    "These come from your Accounting Setup list. Tick the ones staff can choose when they add a petty cash expense.";
+  const BOTH = " Payment Request has its own list, so you can pick differently there.";
+
+  it("says where the list comes from, and that Payment Request has its own when both are chosen", () => {
+    renderStep({ "5000": true }, ["pettyCash", "bills"]);
+    expect(screen.getByRole("note")).toHaveTextContent(NOTE + BOTH);
+  });
+
+  it("drops the Payment Request sentence when Petty Cash is the only module", () => {
+    renderStep({ "5000": true }, ["pettyCash"]);
+    expect(screen.getByRole("note")).toHaveTextContent(NOTE);
+    expect(screen.getByRole("note")).not.toHaveTextContent(/Payment Request/);
   });
 });

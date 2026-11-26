@@ -9,10 +9,14 @@ import { ToastProvider } from "../Toast";
 import { initialState } from "../../lib/wizardSteps";
 import type { WizardState } from "../../lib/types";
 
-function renderStep(bill: { code: string; name: string }[]) {
+function renderStep(
+  bill: { code: string; name: string }[],
+  modules: WizardState["modules"] = ["bills"],
+) {
   const base = initialState();
   const state: WizardState = {
     ...base,
+    modules,
     accounting: { mode: "minty", businessType: "retail", usesSalesCash: false },
     bills: { ...base.bills, billCodes: { all: false, selected: { "420": true } } },
   };
@@ -57,5 +61,19 @@ describe("Payment Request Settings from Accounting Setup", () => {
     expect(screen.queryByText(/Connect to Xero/)).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Go to Accounting Setup" }));
     expect(returnToStep).toHaveBeenCalledWith(4);
+  });
+
+  const NOTE =
+    "These come from your Accounting Setup list. Tick the ones staff can choose when they add a payment request.";
+
+  it("says where the list comes from, and that Petty Cash has its own when both are chosen", () => {
+    renderStep([{ code: "420", name: "Rent" }], ["pettyCash", "bills"]);
+    expect(screen.getByRole("note")).toHaveTextContent(NOTE + " Petty Cash has its own list.");
+  });
+
+  it("drops the Petty Cash sentence when Payment Request is the only module", () => {
+    renderStep([{ code: "420", name: "Rent" }], ["bills"]);
+    expect(screen.getByRole("note")).toHaveTextContent(NOTE);
+    expect(screen.getByRole("note")).not.toHaveTextContent(/Petty Cash/);
   });
 });

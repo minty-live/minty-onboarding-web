@@ -181,7 +181,7 @@ for (const width of [360, 1440] as const) {
     await page.setViewportSize({ width, height: 900 });
     const writes = await stubApi(page, 3);
     await page.goto("/");
-    await page.getByRole("button", { name: "Ok" }).click(); // the arrival prompt
+    await page.getByRole("button", { name: "Go to invite" }).click(); // the arrival prompt
 
     const x = page.getByRole("button", { name: "Remove" });
     const xBox = await x.boundingBox();
@@ -209,5 +209,24 @@ for (const width of [360, 1440] as const) {
       .poll(() => writes.map((r) => new URL(r.url()).pathname))
       .toEqual(["/api/onboarding/invite/cancel"]);
     await expect(page.getByText("ada@example.com")).toHaveCount(0);
+  });
+
+  test(`step 3's arrival prompt: Skip for now goes straight to step 4, at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await stubApi(page, 3);
+    await page.goto("/");
+    const prompt = page.getByRole("dialog", { name: /require accounting expertise/ });
+    await expect(prompt).toBeVisible();
+    await expect(prompt).not.toContainText("Xero");
+    expect(await pageOverflow(page), "the prompt fits the screen").toBeLessThanOrEqual(0);
+    for (const label of ["Go to invite", "Skip for now"]) {
+      const box = await prompt.getByRole("button", { name: label }).boundingBox();
+      expect(box!.height, `"${label}" is a 44px target`).toBeGreaterThanOrEqual(44);
+    }
+    await prompt.getByRole("button", { name: "Skip for now" }).click();
+    await expect(prompt).toHaveCount(0);
+    await expect(page.getByText("What do you usually spend money on?")).toBeVisible();
   });
 }
