@@ -1787,8 +1787,12 @@ textarea {
   outline: 2px solid var(--color-border-focus);
   outline-offset: 2px;
 }
+/* In the pop-up the dialog is the frame: the form drops its own card. */
 .add-account-dialog .acs-form {
-  margin-top: 8px;
+  margin-top: 24px;
+  padding: 0;
+  border: 0;
+  background: none;
 }
 
 .acc-empty-link {
@@ -5521,7 +5525,12 @@ textarea {
 }
 
 /* One account's form */
+/* One even rhythm between the form's parts (the user, 2026-11-27: Name sat on the hint, and Code
+   and Type touched when stacked on a phone). */
 .acs-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
   padding: 16px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -5531,21 +5540,25 @@ textarea {
 }
 .acs-form-title {
   font-weight: 600;
-  margin: 0 0 12px;
+  margin: 0;
 }
 .acs-form-row {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 0 14px;
+  gap: 14px;
 }
 .acs-form-row > .field {
   min-width: 0;
+}
+/* the next free code: the row's whole width, 6px under Code and Type */
+.acs-form-hint {
+  margin: -8px 0 0;
 }
 .acs-form-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
-  margin-top: 12px;
+  margin-top: 4px;
 }
 .acs-form-actions .btn {
   min-height: 44px;

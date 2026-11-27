@@ -160,6 +160,18 @@ describe("StepPettyCodes -- adding an account in place", () => {
     expect(reloadPettyCodes).not.toHaveBeenCalled();
   });
 
+  it("says the next free code on a line of its own, under the code and type", async () => {
+    renderStep({ "5000": true });
+    fireEvent.click(screen.getByRole("button", { name: "+ Add account" }));
+    const hint = await screen.findByText(
+      "6100 is the next free code for Expense. You can change it.",
+    );
+    // the whole row's width (the user, 2026-11-27), not squeezed into the Code column
+    expect(hint.closest(".acs-form-row")).toBeNull();
+    expect(hint.previousElementSibling).toHaveClass("acs-form-row");
+    expect(screen.getByLabelText(/^Code/)).toHaveAttribute("aria-describedby", hint.id);
+  });
+
   it("closes with nothing added on Escape", async () => {
     renderStep({ "5000": true });
     fireEvent.click(screen.getByRole("button", { name: "+ Add account" }));

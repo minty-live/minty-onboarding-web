@@ -961,15 +961,7 @@ export function AccountForm({
             <div className="field-required" id={fieldId("code-error")}>
               {messages.code}
             </div>
-          ) : (
-            !initial &&
-            nextCode[type] && (
-              <p className="acs-hint" id={fieldId("code-hint")}>
-                {nextCode[type]} is the next free code for {typeLabels[type] || "this type"}. You
-                can change it.
-              </p>
-            )
-          )}
+          ) : null}
         </div>
         <div className="field">
           <label htmlFor={fieldId("type")}>Type</label>
@@ -985,6 +977,14 @@ export function AccountForm({
           />
         </div>
       </div>
+      {/* The next free code, on a line of its own under Code and Type (the user, 2026-11-27): in the
+          Code column it wrapped in half the width. */}
+      {!messages.code && !initial && nextCode[type] ? (
+        <p className="acs-hint acs-form-hint" id={fieldId("code-hint")}>
+          {nextCode[type]} is the next free code for {typeLabels[type] || "this type"}. You can
+          change it.
+        </p>
+      ) : null}
       <div className={"field" + (messages.name ? " field-error" : "")}>
         <label htmlFor={fieldId("name")}>
           Name
