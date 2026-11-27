@@ -1297,11 +1297,13 @@ export function StepSalesSetting({
     "UnionPay",
     "Amex",
     "Octopus",
+    "PayMe",
+    "JCB",
   ];
   // Flask's own default set and catalogue names, so Auto Fill links the existing catalogue
   // rows instead of minting near-duplicates. Nothing is pre-seeded: both lists start empty
   // on a new company and only this button fills them.
-  const DEFAULT_DELIVERY = ["Food Panda", "Keeta", "OpenRice"];
+  const DEFAULT_DELIVERY = ["Foodpanda", "Keeta", "OpenRice"];
   // A retail shop, a service or a general business: the cards and wallets it takes (owner, 2026-11-11),
   // bank transfers first (owner, 2026-11-17).
   const DEFAULT_NON_CASH = [
@@ -1313,7 +1315,8 @@ export function StepSalesSetting({
     "Alipay",
     "WeChat Pay",
     "Octopus",
-    "FPS",
+    "PayMe",
+    "JCB",
   ];
   // Auto Fill fills only the lists shown (the ticked sales accounts).
   const defaults = {

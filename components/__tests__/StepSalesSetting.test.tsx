@@ -115,9 +115,11 @@ describe("StepSalesSetting -- Auto Fill's methods", () => {
         "UnionPay",
         "Amex",
         "Octopus",
+        "PayMe",
+        "JCB",
       ]),
     );
-    expect(latest.pettyCash.deliveryMethods).toEqual(["Food Panda", "Keeta", "OpenRice"]);
+    expect(latest.pettyCash.deliveryMethods).toEqual(["Foodpanda", "Keeta", "OpenRice"]);
   });
 
   it.each(["retail", "service", "general"])(
@@ -136,7 +138,8 @@ describe("StepSalesSetting -- Auto Fill's methods", () => {
           "Alipay",
           "WeChat Pay",
           "Octopus",
-          "FPS",
+          "PayMe",
+          "JCB",
         ]),
       );
       expect(latest.pettyCash.deliveryMethods).toEqual([]);
@@ -213,7 +216,7 @@ describe("StepSalesSetting -- the lists follow the sales accounts", () => {
     render(<Harness start={startWith("fnb", { electronic: false, delivery: true })} />);
     fireEvent.click(screen.getByRole("button", { name: /auto fill default settings/i }));
     await waitFor(() =>
-      expect(latest.pettyCash.deliveryMethods).toEqual(["Food Panda", "Keeta", "OpenRice"]),
+      expect(latest.pettyCash.deliveryMethods).toEqual(["Foodpanda", "Keeta", "OpenRice"]),
     );
     expect(latest.pettyCash.electronicMethods).toEqual([]);
   });
