@@ -1746,7 +1746,12 @@ function XeroAccountsScreen({
   const [ticked, setTicked] = useState<Set<string>>(
     () => new Set(rows.filter((a) => a.used).map((a) => a.id)),
   );
-  useStepDraftField(`acs.xero.${kind}`, [...ticked].sort(), (ids) => setTicked(new Set(ids)));
+  // Only the ticks the list shows count (production, 2026-11-26): a Refresh from Xero can drop a
+  // ticked account and a kept draft can name one that is gone, and the API refuses any id it
+  // doesn't offer ("Reload the list"), every Save, with no way to untick it here.
+  const listed = new Set(rows.map((a) => a.id));
+  const picked = [...ticked].filter((id) => listed.has(id)).sort();
+  useStepDraftField(`acs.xero.${kind}`, picked, (ids) => setTicked(new Set(ids)));
   const [query, setQuery] = useState("");
   const [more, setMore] = useState(false);
   const [error, setError] = useState("");
@@ -1771,13 +1776,20 @@ function XeroAccountsScreen({
   };
 
   const save = async () => {
-    if (rows.length > 0 && ticked.size === 0) {
+    if (rows.length === 0) {
+      // nothing to tick: the API would refuse an empty list
+      setError(
+        `Tick at least one ${noun} account to continue. Create one in Xero first, then press Refresh from Xero.`,
+      );
+      return;
+    }
+    if (picked.length === 0) {
       setError(`Tick at least one ${noun} account to continue.`);
       document.getElementById("acs-xero-list")?.focus();
       return;
     }
     setSaving(true);
-    const refused = await onSave([...ticked]);
+    const refused = await onSave(picked);
     setSaving(false);
     if (refused) setError(refused);
   };
@@ -1796,7 +1808,12 @@ function XeroAccountsScreen({
         These come from your Xero chart of accounts. Missing one? Create it in Xero, then press
         Refresh. Accounts you don&apos;t tick stay in Xero; they just won&apos;t appear in Minty.
       </InfoBox>
-      <XeroRefresh onRefresh={onRefresh} />
+      <XeroRefresh
+        onRefresh={async () => {
+          setError("");
+          await onRefresh();
+        }}
+      />
       <div className="acs-xero-stack">
         <label className="acs-xero-search">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1851,7 +1868,7 @@ function XeroAccountsScreen({
         )}
         {rows.length > 0 && (
           <div className="acs-xero-foot">
-            <span>{ticked.size} selected</span>
+            <span>{picked.length} selected</span>
             {hidden > 0 && (
               <button type="button" className="acs-xero-more" onClick={() => setMore(true)}>
                 ⌄ Show more accounts ({hidden})
@@ -1860,9 +1877,7 @@ function XeroAccountsScreen({
           </div>
         )}
       </div>
-      {nav(save, saving, async () =>
-        rows.length > 0 && ticked.size === 0 ? null : onExitSave([...ticked]),
-      )}
+      {nav(save, saving, async () => (picked.length === 0 ? null : onExitSave(picked)))}
     </div>
   );
 }

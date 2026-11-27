@@ -793,6 +793,88 @@ describe("X3 the Xero expense accounts (Figma 348:1949)", () => {
     await waitFor(() => expect(next).toHaveBeenCalledTimes(1));
   });
 
+  // Production, 2026-11-26: three "Reload the list" refusals in a row after Refresh from Xero.
+  const toX3 = async (drafts: StepDraftRegistry | null = null) => {
+    const view = renderStep(
+      { mode: "xero", businessType: null, usesSalesCash: null },
+      ["pettyCash"],
+      { connected: true, org: "Demo" },
+      drafts,
+    );
+    fireEvent.click(await screen.findByRole("button", { name: /Save & Next/ }));
+    await screen.findByText("Which expense accounts should Minty use?");
+    return view;
+  };
+  const ticksSent = () => calls.filter((c) => c.url.endsWith("/xero-accounts"));
+
+  it("a tick the refreshed list no longer has is neither counted nor sent", async () => {
+    connected = true;
+    expenseRows = [xeroRow("x1", "400", "Advertising", true), xeroRow("x2", "469", "Rent", false)];
+    const { next } = await toX3();
+    fireEvent.click(screen.getByRole("checkbox", { name: /Rent/ }));
+    expect(screen.getByText("2 selected")).toBeInTheDocument();
+
+    // Xero no longer has Advertising: the refreshed list leaves it out
+    expenseRows = [xeroRow("x2", "469", "Rent", false), xeroRow("x3", "470", "Repairs", false)];
+    fireEvent.click(screen.getByRole("button", { name: "Refresh from Xero" }));
+    expect(await screen.findByRole("checkbox", { name: /Repairs/ })).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /Rent/ })).toBeChecked();
+    expect(screen.getByText("1 selected")).toBeInTheDocument();
+
+    saveAndNext();
+    await waitFor(() =>
+      expect(ticksSent()[0]?.body).toEqual({
+        entity_id: "e-1",
+        kind: "expense",
+        account_ids: ["x2"],
+      }),
+    );
+    await waitFor(() => expect(next).toHaveBeenCalledTimes(1));
+  });
+
+  it("a kept draft's tick the list doesn't have is neither counted nor sent", async () => {
+    connected = true;
+    expenseRows = [xeroRow("x1", "400", "Advertising", false), xeroRow("x2", "469", "Rent", false)];
+    const setters: Record<string, (v: unknown) => void> = {};
+    const reported: Record<string, unknown> = {};
+    const registry: StepDraftRegistry = {
+      attach(name, put) {
+        setters[name] = put;
+        return () => {
+          delete setters[name];
+        };
+      },
+      report(name, value) {
+        reported[name] = value;
+      },
+    };
+    await toX3(registry);
+    act(() => setters["acs.xero.expense"](["gone-from-xero", "x1"]));
+    expect(screen.getByRole("checkbox", { name: /Advertising/ })).toBeChecked();
+    expect(screen.getByText("1 selected")).toBeInTheDocument();
+    await waitFor(() => expect(reported["acs.xero.expense"]).toEqual(["x1"]));
+
+    saveAndNext();
+    await waitFor(() => expect(ticksSent()[0]?.body).toMatchObject({ account_ids: ["x1"] }));
+  });
+
+  it("with no Xero expense accounts, Save & Next says why and Save & Exit saves nothing", async () => {
+    connected = true;
+    expenseRows = [];
+    const { next, saveAndExit } = await toX3();
+    saveAndNext();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Tick at least one expense account to continue. Create one in Xero first, then press Refresh from Xero.",
+    );
+    expect(next).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Save & Exit" }));
+    await waitFor(() => expect(saveAndExit).toHaveBeenCalledTimes(1));
+    const submit = saveAndExit.mock.calls[0][0] as (() => Promise<unknown>) | undefined;
+    expect(submit ? await submit() : null).toBeNull();
+    expect(ticksSent()).toEqual([]);
+  });
+
   it("searches by code or name and shows the rest behind Show more", async () => {
     connected = true;
     expenseRows = Array.from({ length: 12 }, (_, i) =>

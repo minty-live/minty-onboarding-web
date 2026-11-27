@@ -177,7 +177,12 @@ line since 2026-11-18, owner).
   (`XeroAccountsScreen`: a searchable tick list of the synced chart, `from_xero` rows, ticked =
   `used`, 10 rows then "Show more accounts", its ⓘ box (where the list comes from, and "Missing one? Create it in Xero, then press Refresh."), Refresh from Xero
   `POST /accounting/xero-refresh`); Save & Next posts `/accounting/xero-accounts` (none ticked is
-  refused with its sentence). X1's Save & Next goes on to X3 once connected. Petty Cash Settings
+  refused with its sentence). **Only listed ticks count** (production, 2026-11-26: three "Reload the
+  list" refusals in a row after Refresh): a tick on an account a Refresh dropped, or one a kept draft
+  names, is neither counted ("N selected"), kept in the draft nor sent. **An empty list is never
+  sent:** Save & Next says "Tick at least one expense account to continue. Create one in Xero first,
+  then press Refresh from Xero." with no call, Save & Exit leaves without saving, and Refresh clears
+  the sentence. X1's Save & Next goes on to X3 once connected. Petty Cash Settings
   then mirrors the Minty path: 5 Sales, 6 Account Code (the five daily-closing accounts from
   Xero only - X3 chose the expense accounts, so the codes list is hidden and the save posts the
   mapping alone; Cash Sales only with cash sales), 7 Contact Setup.
